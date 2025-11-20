@@ -19,10 +19,15 @@ class TestKpApExtraction(unittest.TestCase):
         hours = [00.0, 10.0, 01.0]
         other = [2, 1, 0]
 
-        full_test_data = pd.DataFrame({'#YYY': years,
+        full_test_data_hr = pd.DataFrame({'#YYY': years,
                                        'MM': months,
                                        'DD': days,
                                        'hh.h': hours,
+                                       'other': other})
+        
+        full_test_data_nohr = pd.DataFrame({'#YYY': years,
+                                       'MM': months,
+                                       'DD': days,
                                        'other': other})
         
         ans_nohr = pd.Series([np.datetime64('1999-01-11'),
@@ -33,8 +38,8 @@ class TestKpApExtraction(unittest.TestCase):
                             np.datetime64('2000-02-14 10:00:00'),
                             np.datetime64('1998-03-15 01:00:00')])
 
-        #pdt.assert_series_equal(ans_nohr, utils.convert_datetime(full_test_data))
-        pdt.assert_series_equal(ans_hr, utils.convert_datetime(full_test_data))
+        pdt.assert_series_equal(ans_nohr, utils.convert_datetime(full_test_data_nohr))
+        pdt.assert_series_equal(ans_hr, utils.convert_datetime(full_test_data_hr))
 
         return
     def test_missing_dates(self):
