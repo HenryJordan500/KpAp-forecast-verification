@@ -5,7 +5,7 @@ def convert_datetime(data_df):
     # Assume only year, month, day are to be converted
     date_keys = ['#YYY', 'MM', 'DD']
     new_columns = {'#YYY': 'year', 'MM': 'month', 'DD': 'day'}
-
+    
     # If hours column exists in array, add it to conversion
     if 'hh.h' in data_df.keys().to_list():
 
