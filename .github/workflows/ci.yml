@@ -6,18 +6,18 @@ on:
     branches: [ main ]
 
 jobs:
-  run_unit_test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: mamba-org/setup-micromamba@v2
-        with:
-          environment-file: environment.yml
-          init-shell: bash
-      - run: |
-          eval "$(micromamba shell hook --shell bash)"
-          micromamba activate kpproj
-#          python -m 
+#   run_unit_test:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: mamba-org/setup-micromamba@v2
+#         with:
+#           environment-file: environment.yml
+#           init-shell: bash
+#       - run: |
+#           eval "$(micromamba shell hook --shell bash)"
+#           micromamba activate kpproj
+#           python -m 
   run_linter:
     runs-on: ubuntu-latest
     steps:
@@ -26,7 +26,7 @@ jobs:
         with:
           environment-file: environment.yml
           init-shell: bash
-      # - run: pycodestyle $(git ls-files "*.py")
-      #   shell: bash -l {0}
+      - run: pycodestyle $(git ls-files "*.py")
+        shell: bash -l {0}
   
 
