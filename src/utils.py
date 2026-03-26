@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 
 def convert_datetime(data_df):
 
@@ -79,25 +80,19 @@ def extract_ap(ap_file):
 
     return
 
+def get_file_names(directory):
 
+    dir_path = Path(directory)
 
-# 
+    list_files = [p for p in dir_path.iterdir() if p.is_file()]
 
-
-# Inputs
-
-# Function to get Kp and ap
-# Function to get Ap
-# Function to remove bad values (-1.000 Kp, -1 ap)
-
-# Outputs:
-# Csv with Kp for each time
-# Csv with ap for each time
-# Csv with daily Ap
+    return list_files
 
 def main():
 
-    return
+    print(get_file_names('raw_data/daypre'))
+    
+    return 
 
 if __name__ == '__main__':
 

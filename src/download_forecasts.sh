@@ -9,3 +9,5 @@ wget -r -np -nd -A "*.txt" -R "robots.txt" -P raw_data/daypre https://www.ngdc.n
 
 # the_weekly
 wget -r -np -nd -A "*.pdf" -R "Usr_guide.pdf" -P raw_data/the_weekly https://www.ngdc.noaa.gov/stp/space-weather/swpc-products/weekly_reports/PRFs_of_SGD/
+
+wget -r -np -nd -A "*.pdf, *.txt" -R "Usr_guide.pdf, robots.txt" -P raw_data/rsga https://www.ngdc.noaa.gov/stp/space-weather/swpc-products/daily_reports/reports_solar_geophysical_activity/
