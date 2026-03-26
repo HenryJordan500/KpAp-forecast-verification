@@ -17,5 +17,4 @@ dependencies:
     - lightning==2.5.5
     - torchaudio==2.8.0
     - torchvision==0.23.0
-
-prefix: "/Users/henry/miniforge3/envs/kpproj"
+    
