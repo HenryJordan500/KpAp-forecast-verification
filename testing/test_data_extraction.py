@@ -5,7 +5,7 @@ import pandas.testing as pdt
 import numpy.testing as npt
 import unittest
 
-import src.utils as utils
+import src.get_raw_kp_ap_utils as get_raw_kp_ap_utils
 
 
 class TestKpApExtraction(unittest.TestCase):
@@ -38,8 +38,8 @@ class TestKpApExtraction(unittest.TestCase):
                             np.datetime64('2000-02-14 10:00:00'),
                             np.datetime64('1998-03-15 01:00:00')])
 
-        pdt.assert_series_equal(ans_nohr, utils.convert_datetime(full_test_data_nohr))
-        pdt.assert_series_equal(ans_hr, utils.convert_datetime(full_test_data_hr))
+        pdt.assert_series_equal(ans_nohr, get_raw_kp_ap_utils.convert_datetime(full_test_data_nohr))
+        pdt.assert_series_equal(ans_hr, get_raw_kp_ap_utils.convert_datetime(full_test_data_hr))
 
         return
     def test_missing_dates(self):
