@@ -1,5 +1,5 @@
 import pandas as pd
-from utils import *
+from src.get_raw_kp_ap_utils import *
 
 Ap_file = 'Kp_ap_Ap_SN_F107_since_1932.txt'
 Kp_ap_file = 'Kp_ap_since_1932.txt'
