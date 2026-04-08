@@ -1,0 +1,69 @@
+:Product: 3-day Space Weather Predictions daypre.txt
+:Issued: 2013 Dec 25 2200 UTC
+# Prepared by the US Dept. of Commerce, NOAA, Space Weather Prediction Center
+# Product description and SWPC contact on the Web
+# http://www.swpc.noaa.gov/wwire.html
+#
+#             3-day Space Weather Predictions
+#
+:Prediction_dates:   2013 Dec 26   2013 Dec 27   2013 Dec 28
+:Geomagnetic_A_indices:
+A_Fredericksburg          9             9             5
+A_Planetary              10             8             5
+#
+# Predicted 3-hour Middle latitude k-indices
+:Pred_Mid_k:
+Mid/00-03UT               2             2             2
+Mid/03-06UT               3             3             2
+Mid/06-09UT               3             3             2
+Mid/09-12UT               3             2             1
+Mid/12-15UT               2             2             1
+Mid/15-18UT               2             1             1
+Mid/18-21UT               1             2             1
+Mid/21-00UT               1             2             2
+#
+# Predicted 3-hour High latitude k-indices
+:Pred_High_k:
+High/00-03UT              2             2             1
+High/03-06UT              3             2             1
+High/06-09UT              3             3             1
+High/09-12UT              4             3             2
+High/12-15UT              4             3             1
+High/15-18UT              2             2             1
+High/18-21UT              1             1             1
+High/21-00UT              1             1             1
+#
+# Probability of Geomagnetic conditions at Middle Latitude
+:Prob_Mid:
+Mid/Active               25            20            10
+Mid/Minor_Storm          10             5             1
+Mid/Major-Severe_Storm    1             1             1
+#
+# Probability of Geomagnetic conditions at High Latitudes
+:Prob_High:
+High/Active              15            15            15
+High/Minor_Storm         25            25            15
+High/Major-Severe_Storm  35            25            10
+#
+# Polar Cap Absorption Forecast
+:Polar_cap:
+                      green
+#
+# Solar
+:10cm_flux:
+                        125           125           125
+#
+:Whole_Disk_Flare_Prob:
+Class_M                  25            25            25
+Class_X                   1             1             1
+Proton                    1             1             1
+#
+# Region Flare Probabilities for 2013 Dec 26
+# Region     Class C      M             X             P
+:Reg_Prob: 2013 Dec 25
+  1928          0         0             0             0
+  1930         20         1             1             1
+  1931         10         1             1             1
+  1934         30        10             1             1
+  1935          5         1             1             1
+  1936         40        15             1             1

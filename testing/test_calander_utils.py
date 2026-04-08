@@ -29,7 +29,7 @@ class TestGetFileDates(unittest.TestCase):
         report_name = 'daypre'
         result_get_file_dates_daypre = mcu.get_file_dates(report_name=report_name, test=True)
 
-        expected_get_file_dates_daypre = ['20131222', '20131223', '20131224']
+        expected_get_file_dates_daypre = ['20131222', '20131223', '20131225']
 
         self.assertCountEqual(result_get_file_dates_daypre, expected_get_file_dates_daypre) 
 
@@ -47,10 +47,10 @@ class TestFileNamesToDatetimes(unittest.TestCase):
     def test_daypre_datetimes(self):
 
         report_name = 'daypre'
-        list_files_daypre = ['20131222', '20131223', '20131224']
+        list_files_daypre = ['20131222', '20131223', '20131225']
         result_file_names_to_datetimes_daypre = mcu.file_names_to_datetimes(list_files=list_files_daypre, report_name=report_name)
 
-        expected_file_names_to_datetimes_daypre = [dt.date(2013, 12, 22), dt.date(2013, 12, 23), dt.date(2013, 12, 24)]
+        expected_file_names_to_datetimes_daypre = [dt.date(2013, 12, 22), dt.date(2013, 12, 23), dt.date(2013, 12, 25)]
         self.assertCountEqual(result_file_names_to_datetimes_daypre, expected_file_names_to_datetimes_daypre)
         
     def test_three_day_forecast_datetimes(self):

@@ -1,0 +1,25 @@
+:Product: NOAA 3-day Geomagnetic Forecasts
+:Issued: 2022 Nov 17 2200 UTC
+# Prepared by the U.S. Dept. of Commerce, NOAA, Space Weather Prediction Center
+#
+NOAA Ap Index Forecast
+Observed Ap 16 Nov 002
+Estimated Ap 17 Nov 003
+Predicted Ap 18 Nov-20 Nov 010-018-028
+
+NOAA Geomagnetic Activity Probabilities 18 Nov-20 Nov
+Active                30/35/25
+Minor storm           15/25/40
+Moderate storm        01/05/15
+Strong-Extreme storm  01/01/01
+
+NOAA Kp index forecast 18 Nov - 20 Nov
+             Nov 18    Nov 19    Nov 20
+00-03UT        1.33      2.67      4.67
+03-06UT        1.67      2.67      4.33
+06-09UT        3.00      2.33      5.33
+09-12UT        2.67      2.33      3.33
+12-15UT        2.33      3.00      2.67
+15-18UT        2.33      3.33      3.00
+18-21UT        2.67      4.00      3.67
+21-00UT        2.67      4.67      4.00
