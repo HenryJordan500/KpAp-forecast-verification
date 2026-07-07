@@ -108,14 +108,7 @@ def get_daypre_forecast(fill_nans=True, test=False):
     if fill_nans is True:
         df_daypre = fill_nans_func(df=df_daypre)
 
-    # if fill_nans is True:
-        
-    #     df_daypre = df_daypre.set_index('date')
-    #     full_range = pd.date_range(start=df_daypre.index.min(), end=df_daypre.index.max(), freq='D')
-    #     df_daypre = df_daypre.reindex(full_range)
-    #     df_daypre = df_daypre.reset_index().rename(columns={'index': 'date'})
-
-    df_daypre.to_csv(f'{save_path_lead}/daypre_3dayAp.csv')
+    df_daypre.to_csv(f'{save_path_lead}/daypre_3dayAp.csv', index=False)
     
     return df_daypre
 
@@ -170,8 +163,8 @@ def get_geomag_forecast(fill_nans=True, test=False):
         df_geomag_forecast_Kp = fill_nans_func(df=df_geomag_forecast_Kp)
         df_geomag_forecast_Ap = fill_nans_func(df=df_geomag_forecast_Ap)
 
-    df_geomag_forecast_Kp.to_csv(f'{save_path_lead}/geomag_forecast_3dayKp.csv')
-    df_geomag_forecast_Ap.to_csv(f'{save_path_lead}/geomag_forecast_3dayAp.csv')
+    df_geomag_forecast_Kp.to_csv(f'{save_path_lead}/geomag_forecast_3dayKp.csv', index=False)
+    df_geomag_forecast_Ap.to_csv(f'{save_path_lead}/geomag_forecast_3dayAp.csv', index=False)
     
     return df_geomag_forecast_Kp, df_geomag_forecast_Ap
 
