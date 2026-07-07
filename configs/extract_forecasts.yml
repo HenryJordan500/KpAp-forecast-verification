@@ -1,5 +1,5 @@
 daypre: 
-  extract: True
+  extract: False
   fill_nans: True
 geomag_forecast:
   extract: True
