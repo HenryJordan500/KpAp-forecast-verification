@@ -79,9 +79,9 @@ def file_names_to_datetimes(list_files, report_name):
     """
 
     if report_name == 'daypre' or report_name == 'geomag_forecast' or report_name == 'rsga':
-        date_format = [dt.date(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8])) for p in list_files]
+        date_format = [dt.date(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8])) for p in list_files if p[0] != "."]
     if report_name == 'three_day_forecast':
-        date_format = [dt.datetime(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8]), hour=int(p[8:10]), minute=int(p[10:12])) for p in list_files]
+        date_format = [dt.datetime(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8]), hour=int(p[8:10]), minute=int(p[10:12])) for p in list_files if p[0] != "."]
 
     dt_list_files = sorted(date_format)
 
