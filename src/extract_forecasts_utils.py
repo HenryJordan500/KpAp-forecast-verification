@@ -124,8 +124,8 @@ def get_geomag_forecast(fill_nans=True, test=False):
         
 
     last_ind = 8
-    raw_dt_strings = [p.name[:last_ind] for p in dir_path.iterdir() if p.is_file()]
-    raw_file_strings = [p for p in dir_path.iterdir() if p.is_file()]
+    raw_dt_strings = [p.name[:last_ind] for p in dir_path.iterdir() if p.is_file() and p.name[0] != "."]
+    raw_file_strings = [p for p in dir_path.iterdir() if p.is_file() and p.name[0] != "."]
     unsorted_dt_list = np.array([dt.date(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8])) for p in raw_dt_strings], dtype='datetime64[ns]')
 
     kp_lists = [[] for i in range(24)]
@@ -135,7 +135,7 @@ def get_geomag_forecast(fill_nans=True, test=False):
     for file in raw_file_strings:
 
         extract_geomag_forecast_kp_from_file(file=file,
-                             kp_lists=kp_lists)
+                                             kp_lists=kp_lists)
         extract_geomag_forecast_ap_from_file(file=file,
                                              ap_lists=ap_lists)
         

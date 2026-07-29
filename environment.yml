@@ -2,6 +2,7 @@ name: kpproj
 channels:
   - conda-forge
   - pkgs/main
+  - bioconda
 dependencies:
   - h5py>=3.14.0
   - ipdb>=0.13.13
@@ -12,5 +13,6 @@ dependencies:
   - pyyaml>=6.0.2
   - requests>=2.32.5
   - scipy>=1.16.2
+  - snakemake>=9.23.1
   - tqdm>=4.63.0
   - wandb>=0.22.2
