@@ -1,16 +1,20 @@
 rule all:
     input:
         "analysis/geomag_forecast_calander.png",
-        "processed_data/geomag_forecast_3dayKp.csv"
+        "processed_data/geomag_forecast_3dayKp.csv",
+        "processed_data/real_3dayAp.csv",
+        "processed_data/real_3dayKp.csv",
+        "processed_data/persistence_3dayAp.csv",
+        "processed_data/persistence_3dayKp.csv",
+        "processed_data/recurrence_3dayAp.csv",
+        "processed_data/recurrence_3dayKp.csv",
 
 rule download_data_from_internet:
     output: 
         "raw_data/SWPC_Kp_Forecasts_2011_2025.csv",
         "raw_data/Kp_ap_Ap_SN_F107_since_1932.txt",
         "raw_data/Kp_ap_since_1932.txt",
-#         directory("raw_data/daypre"),
         directory("raw_data/geomag_forecast"),
-#         directory("raw_data/three_day_forecast")
     input:
         script = "scripts/download_swpc_forecasts_and_raw_vals.sh"
     shell:
@@ -48,11 +52,17 @@ rule make_availability_plots:
         python -m scripts.make_calanders
         """
 
-# rule create_baseline_forecasts:
-#     output:
-#         ""
-#     input:
-#         ""
-#     shell:
-#         """
-#         """
+rule create_baseline_forecasts:
+    output:
+        "processed_data/real_3dayAp.csv",
+        "processed_data/real_3dayKp.csv",
+        "processed_data/persistence_3dayAp.csv",
+        "processed_data/persistence_3dayKp.csv",
+        "processed_data/recurrence_3dayAp.csv",
+        "processed_data/recurrence_3dayKp.csv",
+    input:
+        "scripts/create_baseline_forecasts.py"
+    shell:
+        """
+        python -m scripts.create_baseline_forecasts
+        """

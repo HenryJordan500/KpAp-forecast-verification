@@ -72,6 +72,7 @@ def extract_geomag_forecast_ap_from_file(file, ap_lists):
             
     return
 
+
 def get_daypre_forecast(fill_nans=True, test=False):
 
     if test is False:
