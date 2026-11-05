@@ -6,10 +6,10 @@ from pathlib import Path
 
 def fill_nans_func(df):
 
-    df = df.set_index('date')
+    df = df.set_index('Forecast Issued')
     full_range = pd.date_range(start=df.index.min(), end=df.index.max(), freq='D')
     df = df.reindex(full_range)
-    df = df.reset_index().rename(columns={'index': 'date'})
+    df = df.reset_index().rename(columns={'index': 'Forecast Issued'})
 
     return df
 
@@ -77,7 +77,7 @@ def get_daypre_forecast(fill_nans=True, test=False):
 
     if test is False:
         dir_path = Path(f'raw_data/daypre')
-        save_path_lead = 'processed_data'
+        save_path_lead = 'extracted_data'
     else:
         dir_path = Path(f'testing/resources/testing_files/testing_daypre')
         save_path_lead = test
@@ -95,7 +95,7 @@ def get_daypre_forecast(fill_nans=True, test=False):
 
         extract_daypre_ap_from_file(file=file, ap_lists=ap_lists)
     
-    ap_dict = {'date': unsorted_dt_list}
+    ap_dict = {'Forecast Issued': unsorted_dt_list}
     for i in range(len(ap_lists)):
         ap_dict[f'{i+1}dAp'] = np.array(ap_lists[i], dtype=int)
 
@@ -103,13 +103,13 @@ def get_daypre_forecast(fill_nans=True, test=False):
     df_daypre = pd.DataFrame(ap_dict)
     
     # Sort dataframe so that dates are in order
-    df_daypre.sort_values('date', inplace=True)
-    df_daypre.set_index(pd.Index([i for i in range(0, len(df_daypre['date']))]), inplace=True)
+    df_daypre.sort_values('Forecast Issued', inplace=True)
+    df_daypre.set_index(pd.Index([i for i in range(0, len(df_daypre['Forecast Issued']))]), inplace=True)
 
     if fill_nans is True:
         df_daypre = fill_nans_func(df=df_daypre)
 
-    df_daypre.to_csv(f'{save_path_lead}/daypre_3dayAp.csv', index=False)
+    df_daypre.to_csv(f'{save_path_lead}/daypre_3day_daily_Ap.csv', index=False)
     
     return df_daypre
 
@@ -118,7 +118,7 @@ def get_geomag_forecast(fill_nans=True, test=False):
     
     if test is False:
         dir_path = Path(f'raw_data/geomag_forecast')
-        save_path_lead = 'processed_data'
+        save_path_lead = 'extracted_data'
     else:
         dir_path = Path(f'testing/resources/testing_files/testing_geomag_forecast')
         save_path_lead = test
@@ -140,11 +140,11 @@ def get_geomag_forecast(fill_nans=True, test=False):
         extract_geomag_forecast_ap_from_file(file=file,
                                              ap_lists=ap_lists)
         
-    kp_dict = {'date': unsorted_dt_list}
+    kp_dict = {'Forecast Issued': unsorted_dt_list}
     for i in range(len(kp_lists)):
         kp_dict[f'{3*(i+1)}hrKp'] = np.array(kp_lists[i], dtype=float)
 
-    ap_dict = {'date': unsorted_dt_list}
+    ap_dict = {'Forecast Issued': unsorted_dt_list}
     for i in range(len(ap_lists)):
         ap_dict[f'{i+1}dAp'] = np.array(ap_lists[i], dtype=int)
 
@@ -153,19 +153,19 @@ def get_geomag_forecast(fill_nans=True, test=False):
     df_geomag_forecast_Ap = pd.DataFrame(ap_dict)
     
     # Sort dataframe so that dates are in order
-    df_geomag_forecast_Kp.sort_values('date', inplace=True)
-    df_geomag_forecast_Kp.set_index(pd.Index([i for i in range(0, len(df_geomag_forecast_Kp['date']))]), inplace=True)
+    df_geomag_forecast_Kp.sort_values('Forecast Issued', inplace=True)
+    df_geomag_forecast_Kp.set_index(pd.Index([i for i in range(0, len(df_geomag_forecast_Kp['Forecast Issued']))]), inplace=True)
 
-    df_geomag_forecast_Ap.sort_values('date', inplace=True)
-    df_geomag_forecast_Ap.set_index(pd.Index([i for i in range(0, len(df_geomag_forecast_Ap['date']))]), inplace=True)
+    df_geomag_forecast_Ap.sort_values('Forecast Issued', inplace=True)
+    df_geomag_forecast_Ap.set_index(pd.Index([i for i in range(0, len(df_geomag_forecast_Ap['Forecast Issued']))]), inplace=True)
 
     # Fill missing forecast dates with Nan
     if fill_nans is True:
         df_geomag_forecast_Kp = fill_nans_func(df=df_geomag_forecast_Kp)
         df_geomag_forecast_Ap = fill_nans_func(df=df_geomag_forecast_Ap)
 
-    df_geomag_forecast_Kp.to_csv(f'{save_path_lead}/geomag_forecast_3dayKp.csv', index=False)
-    df_geomag_forecast_Ap.to_csv(f'{save_path_lead}/geomag_forecast_3dayAp.csv', index=False)
+    df_geomag_forecast_Kp.to_csv(f'{save_path_lead}/geomag_forecast_3day_3hr_Kp.csv', index=False)
+    df_geomag_forecast_Ap.to_csv(f'{save_path_lead}/geomag_forecast_3day_daily_Ap.csv', index=False)
     
     return df_geomag_forecast_Kp, df_geomag_forecast_Ap
 

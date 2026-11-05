@@ -103,7 +103,7 @@ class TestGetDaypreForecast(unittest.TestCase):
         
         _ = efu.get_daypre_forecast(test=self.temp_path)
 
-        self.assertTrue(Path(f'{self.temp_path}/daypre_3dayAp.csv').is_file())
+        self.assertTrue(Path(f'{self.temp_path}/daypre_3day_daily_Ap.csv').is_file())
 
 
 class TestGetGeomagForecast(unittest.TestCase):
@@ -135,8 +135,8 @@ class TestGetGeomagForecast(unittest.TestCase):
 
         _ = efu.get_geomag_forecast(test=self.temp_path)
 
-        self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3dayKp.csv').is_file())
-        self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3dayAp.csv').is_file())
+        self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3day_3hr_Kp.csv').is_file())
+        self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3day_daily_Ap.csv').is_file())
     
 
 
