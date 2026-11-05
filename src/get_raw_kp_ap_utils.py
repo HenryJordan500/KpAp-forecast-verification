@@ -39,7 +39,7 @@ def extract_Ap(Ap_file):
 
     # No missing data values in Ap
     # Guessing they just averaged the data available for the day
-    Ap_df.to_csv('processed_data/daily_Ap.csv', index=False)
+    Ap_df.to_csv('extracted_data/daily_Ap.csv', index=False)
 
     return 
 
@@ -57,7 +57,7 @@ def extract_Kp(Kp_file):
 
     Kp_df = pd.DataFrame({'Datetime': dates, 'Kp': full_data_df['Kp']})
 
-    Kp_df.to_csv('processed_data/3hour_Kp.csv', index=False)
+    Kp_df.to_csv('extracted_data/3hour_Kp.csv', index=False)
 
     return
 
@@ -76,7 +76,7 @@ def extract_ap(ap_file):
 
     ap_df = pd.DataFrame({'Datetime': dates, 'ap': full_data_df['ap']})
 
-    ap_df.to_csv('processed_data/3hour_ap.csv', index=False)
+    ap_df.to_csv('extracted_data/3hour_ap.csv', index=False)
 
     return
 
