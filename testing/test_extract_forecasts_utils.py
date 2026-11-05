@@ -139,6 +139,35 @@ class TestGetGeomagForecast(unittest.TestCase):
         self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3day_daily_Ap.csv').is_file())
     
 
+class TestExtractKpFromSWPCSheet(unittest.TestCase):
+
+    def setUp(self):
+    
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.temp_path = Path(self.temp_dir.name)
+    
+    def tearDown(self):
+
+        self.temp_dir.cleanup()
+
+    def test_correct_vals_no_nans(self):
+
+        result_extract_kp_from_SWPC_sheet_7day, result_extract_kp_from_SWPC_sheet_3day = efu.extract_Kp_from_SWPC_sheet(fill_nans=False, test=self.temp_path)
+
+        expected_extract_kp_from_SWPC_sheet_7day = t.expected_extract_kp_from_SWPC_sheet_7day
+        expected_extract_kp_from_SWPC_sheet_3day = t.expected_extract_kp_from_SWPC_sheet_3day
+        pdt.assert_frame_equal(result_extract_kp_from_SWPC_sheet_7day, expected_extract_kp_from_SWPC_sheet_7day)
+        pdt.assert_frame_equal(result_extract_kp_from_SWPC_sheet_3day, expected_extract_kp_from_SWPC_sheet_3day)
+
+    def test_csv_exists(self):
+    
+            _ = efu.extract_Kp_from_SWPC_sheet(test=self.temp_path)
+
+            self.assertTrue(Path(f'{self.temp_path}/SWPC_7day_3hr_Kp.csv').is_file())
+            self.assertTrue(Path(f'{self.temp_path}/SWPC_3day_3hr_Kp.csv').is_file())
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
