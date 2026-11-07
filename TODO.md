@@ -1,8 +1,7 @@
 # To Do
 
 
-
-- Transform SWPC sheet into same style as other forecasts
+- Clean up main branch
 - Create SWPC sheet of ap forecasts
 - Investigate where forecasts in SWPC sheet are coming from
 - Include time in forecast issued for geomag_forecast and baseline forecast

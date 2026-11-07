@@ -3,23 +3,7 @@ import yaml
 
 from src.extract_forecasts_utils import *
 
-parser = argparse.ArgumentParser(description='Input',
-                                 prog='Extract forecast data from reports')
 
-parser.add_argument('--config',
-                    type=str,
-                    help='Config file what contains arguments for extracting forecasts from reports',
-                    required=False,
-                    default='configs/extract_forecasts.yml')
+df_geomag_forecast = get_geomag_forecast(fill_nans=True)
+df_SWPC_Kp_7day, df_SWPC_Kp_3day = extract_Kp_from_SWPC_sheet(fill_nans=True)
 
-args = parser.parse_args()
-
-f = open(file=args.config, mode='r')
-config = yaml.load(f, Loader=yaml.FullLoader)
-f.close()
-
-if config['daypre']['extract'] is True:
-    df_daypre = get_daypre_forecast(fill_nans=config['daypre']['fill_nans'])
-
-if config['geomag_forecast']['extract'] is True:
-    df_geomag_forecast = get_geomag_forecast(fill_nans=config['geomag_forecast']['fill_nans'])

@@ -1,6 +1,0 @@
-daypre: 
-  extract: False
-  fill_nans: True
-geomag_forecast:
-  extract: True
-  fill_nans: True

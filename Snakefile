@@ -6,6 +6,8 @@ rule all:
         "extracted_data/3hour_ap.csv",
         "extracted_data/geomag_forecast_3day_3hr_Kp.csv",
         "extracted_data/geomag_forecast_3day_daily_Ap.csv",
+        "extracted_data/SWPC_7day_3hr_Kp.csv",
+        "extracted_data/SWPC_3day_3hr_Kp.csv",
         "baseline_forecasts/real_3day_daily_Ap.csv",
         "baseline_forecasts/real_3day_3hr_Kp.csv",
         "baseline_forecasts/real_3day_3hr_ap.csv",
@@ -14,6 +16,7 @@ rule all:
         "baseline_forecasts/persistence_3day_3hr_ap.csv",
         "baseline_forecasts/recurrence_3day_daily_Ap.csv",
         "baseline_forecasts/recurrence_3day_3hr_Kp.csv",
+        "baseline_forecasts/recurrence_3day_3hr_ap.csv",
 
 checkpoint download_data_from_internet:
     output: 
@@ -38,11 +41,14 @@ def geomag_forecast_files(wildcards):
     return expand(f"{d}/{{date}}geomag_forecast.txt", date=dates)
 
 
-rule extract_geomag_forecast:
+rule extract_SWPC_forecast:
     output:
         "extracted_data/geomag_forecast_3day_3hr_Kp.csv",
         "extracted_data/geomag_forecast_3day_daily_Ap.csv",
+        "extracted_data/SWPC_7day_3hr_Kp.csv",
+        "extracted_data/SWPC_3day_3hr_Kp.csv",
     input:
+        "raw_data/SWPC_Kp_Forecasts_2011_2025.csv",
         script = "scripts/extract_forecasts.py",
         utils = "src/extract_forecasts_utils.py",
         geomag = geomag_forecast_files,
@@ -77,6 +83,7 @@ rule create_baseline_forecasts:
         "baseline_forecasts/persistence_3day_3hr_ap.csv",
         "baseline_forecasts/recurrence_3day_daily_Ap.csv",
         "baseline_forecasts/recurrence_3day_3hr_Kp.csv",
+        "baseline_forecasts/recurrence_3day_3hr_ap.csv",
     input:
         "extracted_data/3hour_Kp.csv",
         "extracted_data/daily_Ap.csv",

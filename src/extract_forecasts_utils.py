@@ -169,6 +169,48 @@ def get_geomag_forecast(fill_nans=True, test=False):
     
     return df_geomag_forecast_Kp, df_geomag_forecast_Ap
 
+
+def extract_Kp_from_SWPC_sheet(fill_nans=True, test=False):
+
+    if test is False:
+        file_path = Path('raw_data/SWPC_Kp_Forecasts_2011_2025.csv')
+        save_path_lead = 'extracted_data'
+    else:
+        file_path = Path('testing/resources/testing_files/testing_SWPC_Kp_Forecasts_2011_2025.csv')
+        save_path_lead = test
+
+    df = pd.read_csv(file_path)
+
+    # Parse issue date and lead day number ('day3' -> 3)
+    df['Forecast Issued'] = pd.to_datetime(df['Forecast Day'], format='%m/%d/%Y')
+    df['day'] = df['Day after forecast'].str.replace('day', '').astype(int)
+
+    slot_cols = [c for c in df.columns if 'UTC' in c]  # 8 three-hour slots in time order
+    n_days = df['day'].max()
+
+    # Long (one row per issue date + lead day) -> wide (one row per issue date)
+    df_wide = df.pivot(index='Forecast Issued', columns='day', values=slot_cols)
+
+    # Order columns day1 slots 00-03..21-00, then day2, etc.
+    ordered_cols = [(slot, day) for day in range(1, n_days + 1) for slot in slot_cols]
+    df_wide = df_wide[ordered_cols]
+    df_wide.columns = [f'{3*(i+1)}hrKp' for i in range(len(ordered_cols))]
+
+    df_SWPC_Kp_7day = df_wide.round(2).sort_index().reset_index()
+
+    # Fill missing forecast dates with Nan
+    if fill_nans is True:
+        df_SWPC_Kp_7day = fill_nans_func(df=df_SWPC_Kp_7day)
+
+    # 3 day forecast: issue date + first 24 three-hour lead times (3hrKp..72hrKp)
+    df_SWPC_Kp_3day = df_SWPC_Kp_7day[['Forecast Issued'] + [f'{3*(i+1)}hrKp' for i in range(24)]]
+
+    df_SWPC_Kp_7day.to_csv(f'{save_path_lead}/SWPC_7day_3hr_Kp.csv', index=False)
+    df_SWPC_Kp_3day.to_csv(f'{save_path_lead}/SWPC_3day_3hr_Kp.csv', index=False)
+
+    return df_SWPC_Kp_7day, df_SWPC_Kp_3day
+
+
 def extract_the_weekly_ap_from_file():
     return
 
@@ -186,4 +228,13 @@ def get_three_day_forecast():
 
 def combine_daypre_geomag_ap_forecasts():
     return
+
+
+def main():
+
+    extract_Kp_from_SWPC_sheet(fill_nans=True)
+
+if __name__ == '__main__':
+
+    main()
 
