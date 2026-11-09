@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import datetime as dt
+import shutil
 
 import unittest
 import pandas.testing as pdt
@@ -161,13 +162,64 @@ class TestExtractKpFromSWPCSheet(unittest.TestCase):
 
     def test_csv_exists(self):
     
-            _ = efu.extract_Kp_from_SWPC_sheet(test=self.temp_path)
+        _ = efu.extract_Kp_from_SWPC_sheet(test=self.temp_path)
 
-            self.assertTrue(Path(f'{self.temp_path}/SWPC_7day_3hr_Kp.csv').is_file())
-            self.assertTrue(Path(f'{self.temp_path}/SWPC_3day_3hr_Kp.csv').is_file())
+        self.assertTrue(Path(f'{self.temp_path}/SWPC_7day_3hr_Kp.csv').is_file())
+        self.assertTrue(Path(f'{self.temp_path}/SWPC_3day_3hr_Kp.csv').is_file())
 
 
+class TestRoundDecimal(unittest.TestCase):
 
+    def test_correct_rounding(self):
+
+        self.assertAlmostEqual(0.33, efu.round_decimal(0.33))
+        self.assertAlmostEqual(1.33, efu.round_decimal(1.33))
+
+        self.assertAlmostEqual(0.33, efu.round_decimal(0.333))
+        self.assertAlmostEqual(1.33, efu.round_decimal(1.333))
+
+        self.assertAlmostEqual(1.67, efu.round_decimal(1.667))
+
+        self.assertAlmostEqual(12.33, efu.round_decimal(12.333))
+
+
+class TestConvertKpToap(unittest.TestCase):
+
+    def test_correct_conversion(self):
+
+        self.assertEqual(0, efu.convert_Kp_to_ap(0))
+        self.assertEqual(2, efu.convert_Kp_to_ap(0.33))
+        self.assertEqual(3, efu.convert_Kp_to_ap(0.67))
+        self.assertEqual(4, efu.convert_Kp_to_ap(1))
+        self.assertEqual(22, efu.convert_Kp_to_ap(3.67))
+
+
+class TestConvertKpForecastToap(unittest.TestCase):
+
+    def setUp(self):
+        
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.temp_path = Path(self.temp_dir.name)
+        self.file_name = 'testing_SWPC_3day_3hr_Kp.csv'
+
+        shutil.copy(Path(f'testing/resources/testing_files/{self.file_name}'), self.temp_path)
+    
+    def tearDown(self):
+
+        self.temp_dir.cleanup()
+
+    def test_file_exists(self):
+
+        _ = efu.convert_Kp_forecast_to_ap(Path(f'{self.temp_path}/{self.file_name}'))
+
+        self.assertTrue(Path(f'{self.temp_path}/testing_SWPC_3day_3hr_ap.csv').is_file())
+
+    def test_correct_vals(self):
+
+        result_convert_Kp_forecast_to_ap = efu.convert_Kp_forecast_to_ap(Path(f'{self.temp_path}/{self.file_name}'))
+        expected_convert_Kp_forecast_to_ap = t.expected_convert_Kp_forecast_to_ap
+
+        pdt.assert_frame_equal(result_convert_Kp_forecast_to_ap, expected_convert_Kp_forecast_to_ap)
 
 if __name__ == '__main__':
     unittest.main()

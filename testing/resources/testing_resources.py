@@ -146,6 +146,12 @@ expected_extract_kp_from_SWPC_sheet_3day_dict = {'Forecast Issued':  np.array([d
 expected_extract_kp_from_SWPC_sheet_3day = pd.DataFrame(expected_extract_kp_from_SWPC_sheet_3day_dict)
 
 
+expected_convert_Kp_forecast_to_ap_dict = {'Forecast Issued': np.array([dt.date(2011, 11, 28), dt.date(2011, 11, 29)], dtype='datetime64[ns]'),
+                                           '3hrap': [2, np.nan],
+                                           '6hrap': [22, np.nan],
+                                           '9hrap': [400, np.nan]}
+
+expected_convert_Kp_forecast_to_ap = pd.DataFrame(expected_convert_Kp_forecast_to_ap_dict)
 
 
 

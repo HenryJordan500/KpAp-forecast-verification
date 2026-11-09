@@ -211,6 +211,54 @@ def extract_Kp_from_SWPC_sheet(fill_nans=True, test=False):
     return df_SWPC_Kp_7day, df_SWPC_Kp_3day
 
 
+def round_decimal(num):
+
+    int_part = int(num)
+    decimal = num - int_part
+    rounded_decimal = round(decimal, 2)
+    
+    return rounded_decimal + int_part
+
+
+def convert_Kp_to_ap(Kp):
+
+    Kp = round_decimal(Kp)
+    
+    Kp_vals = [0.0, 0.33, 0.67, 1.0, 1.33, 1.67, 2.0,
+               2.33, 2.67, 3.0, 3.33, 3.67, 4.0, 4.33,
+               4.67, 5.0, 5.33, 5.67, 6.0, 6.33, 6.67,
+               7.0, 7.33, 7.67, 8.0, 8.33, 8.67, 9.0]
+
+    ap_vals = [0, 2, 3, 4, 5, 6, 7,
+               9, 12, 15, 18, 22, 27, 32,
+               39, 48, 56, 67, 80, 94, 111,
+               132, 154, 179, 207, 236, 300, 400]
+
+    converted_ap = ap_vals[Kp_vals.index(Kp)]
+
+    return converted_ap
+
+
+def convert_Kp_forecast_to_ap(file_path):
+
+    file_path = Path(file_path)
+    df = pd.read_csv(file_path)
+
+    kp_cols = [c for c in df.columns if c.endswith('Kp')]
+
+    # Convert each Kp value to ap, leaving missing values as NaN
+    for col in kp_cols:
+        df[col] = df[col].apply(lambda Kp: np.nan if pd.isna(Kp) else convert_Kp_to_ap(Kp))
+
+    # Rename columns 3hrKp -> 3hrap
+    df = df.rename(columns={c: c[:-2] + 'ap' for c in kp_cols})
+    df['Forecast Issued'] = pd.to_datetime(df['Forecast Issued'])
+
+    save_path = file_path.with_name(file_path.name.replace('Kp', 'ap'))
+    df.to_csv(save_path, index=False)
+
+    return df
+
 def extract_the_weekly_ap_from_file():
     return
 
@@ -232,7 +280,8 @@ def combine_daypre_geomag_ap_forecasts():
 
 def main():
 
-    extract_Kp_from_SWPC_sheet(fill_nans=True)
+    #convert_Kp_to_ap(0.67)
+    print(round_decimal(12.456))
 
 if __name__ == '__main__':
 
