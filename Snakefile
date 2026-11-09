@@ -5,9 +5,12 @@ rule all:
         "extracted_data/daily_Ap.csv",
         "extracted_data/3hour_ap.csv",
         "extracted_data/geomag_forecast_3day_3hr_Kp.csv",
+        "extracted_data/geomag_forecast_3day_3hr_ap.csv",
         "extracted_data/geomag_forecast_3day_daily_Ap.csv",
         "extracted_data/SWPC_7day_3hr_Kp.csv",
         "extracted_data/SWPC_3day_3hr_Kp.csv",
+        "extracted_data/SWPC_7day_3hr_ap.csv",
+        "extracted_data/SWPC_3day_3hr_ap.csv",
         "baseline_forecasts/real_3day_daily_Ap.csv",
         "baseline_forecasts/real_3day_3hr_Kp.csv",
         "baseline_forecasts/real_3day_3hr_ap.csv",
@@ -44,9 +47,12 @@ def geomag_forecast_files(wildcards):
 rule extract_SWPC_forecast:
     output:
         "extracted_data/geomag_forecast_3day_3hr_Kp.csv",
+        "extracted_data/geomag_forecast_3day_3hr_ap.csv",
         "extracted_data/geomag_forecast_3day_daily_Ap.csv",
         "extracted_data/SWPC_7day_3hr_Kp.csv",
         "extracted_data/SWPC_3day_3hr_Kp.csv",
+        "extracted_data/SWPC_7day_3hr_ap.csv",
+        "extracted_data/SWPC_3day_3hr_ap.csv",
     input:
         "raw_data/SWPC_Kp_Forecasts_2011_2025.csv",
         script = "scripts/extract_forecasts.py",
