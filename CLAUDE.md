@@ -1,0 +1,56 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+Verification of SWPC geomagnetic (Kp / ap / Ap) forecasts. The pipeline downloads SWPC forecast reports and GFZ observed Kp/ap/Ap. It extracts both into tidy CSVs, builds baseline forecasts (real, persistence, recurrence) to compare against, and plots report-availability calendars. Analysis lives in `notebooks/`.
+
+## Environment and commands
+
+All commands run from the repo root. Paths in `src/` are relative to the root, and scripts are invoked as modules.
+
+- Environment: `conda env create -f environment.yml` → `conda activate kpproj`. The default `python` on this machine is a pyenv 3.8 with no pandas, so activate `kpproj` (or call `~/miniforge3/envs/kpproj/bin/python`) first.
+- Full pipeline: `snakemake --cores 1`. The first rule runs `scripts/download_swpc_forecasts_and_raw_vals.sh` with wget, which pulls large amounts of data from NOAA NCEI, GFZ and Google Drive.
+- Single pipeline step: `python -m scripts.extract_forecasts`, `python -m scripts.get_raw_kp_ap`, `python -m scripts.create_baseline_forecasts`, or `python -m scripts.make_calanders [--config configs/calanders.yml]`.
+- Lint (the only CI check, `.github/workflows/ci.yml`): `pycodestyle $(git ls-files "*.py")`.
+- Tests (unittest, not run in CI): `python -m unittest discover -s testing -t .`
+  - Single file: `python -m unittest testing.test_extract_forecasts_utils`
+  - Single test: `python -m unittest testing.test_extract_forecasts_utils.TestFillNansFunc.test_nans_filled`
+
+## Architecture
+
+**Layout:** each pipeline stage has a thin script in `scripts/` that calls functions from a matching `src/<name>_utils.py`. The scripts have no `main()` and run their work at import time. Each utils module has a test file `testing/test_<name>_utils.py`. `Snakefile` wires the stages together and lists both the script and its utils file as inputs, so editing either one re-triggers the rule.
+
+**Data flow:**
+1. `raw_data/` (gitignored, filled by the download checkpoint). `geomag_forecast/YYYYMMDDgeomag_forecast.txt` reports, `SWPC_Kp_Forecasts_2011_2025.csv` (internal SWPC 7-day Kp sheet), and GFZ `Kp_ap_*_since_1932.txt`. `download_data_from_internet` is a Snakemake **checkpoint**, so downstream rules find the geomag files dynamically with `geomag_forecast_files()`.
+2. `extracted_data/`:
+   - `src/extract_forecasts_utils.py` parses the forecast reports into wide CSVs.
+   - `src/get_raw_kp_ap_utils.py` parses the GFZ fixed-width text (via `skiprows`) into long `Datetime,<value>` CSVs.
+   - `convert_Kp_forecast_to_ap` maps Kp to ap through the standard thirds table. Values must round to an exact table entry, or `.index()` raises.
+3. `baseline_forecasts/`: `src/create_baseline_forecasts_utils.py` reads the observed CSVs in `extracted_data/`.
+   - `real_*`: the observed values over the next 3 days.
+   - `persistence_*`: the value at issue time, repeated.
+   - `recurrence_*`: the values from 27 days earlier (one solar rotation).
+   - 3-hourly outputs are subsampled to one row per day (`index % 8 == 0`).
+4. `analysis/*_calander.png`: `src/make_calanders_utils.py`, driven by `configs/calanders.yml`. Each report type has an `include` flag and date range; only `geomag_forecast` is enabled.
+
+The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs are committed to git.
+
+**Forecast CSV schema** (shared by extracted and baseline forecasts):
+- Every row has a `Forecast Issued` date.
+- 3-hourly lead columns are `3hrKp … 72hrKp` (or `…ap`), and run to `168hr` for the SWPC 7-day sheet.
+- Daily columns are `1dAp, 2dAp, 3dAp`.
+- With `fill_nans=True`, missing issue dates get NaN rows (`fill_nans_func`).
+- File names follow `<source>_<horizon>_<cadence>_<quantity>.csv`.
+
+**Report types:**
+- `geomag_forecast` and the SWPC sheet are active.
+- `daypre`, `three_day_forecast`, `rsga` and `the_weekly` are partly implemented, have stub functions, or are commented out in the download script.
+- `three_day_forecast` filenames carry a 12-character timestamp; the other reports use 8 characters.
+
+**Testing convention:** utils functions take a `test` argument.
+- In `extract_forecasts_utils` and `create_baseline_forecasts_utils`, passing a directory path as `test` sends output there instead of the real output dir, and tests pass a `tempfile.TemporaryDirectory`. When reading inputs, a truthy `test` switches to fixtures in `testing/resources/testing_files/`.
+- Expected DataFrames live in `testing/resources/testing_resources.py`.
+- The baseline-forecast tests read the committed real `extracted_data/*.csv`, so they check specific historical values.
+- `test_make_calanders_utils.TestCreateDailyCalanderPlot.test_plot_exists` reads the real `raw_data/daypre`, which isn't downloaded by default, so it errors unless that directory exists.
