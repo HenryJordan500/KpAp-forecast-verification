@@ -4,14 +4,210 @@ import pandas as pd
 import datetime as dt
 from pathlib import Path
 
-def fill_nans_func(df):
+TIME_COLS = ['Forecast Issued', 'Forecast Start', 'Start Offset (hr)']
 
-    df = df.set_index('Forecast Issued')
-    full_range = pd.date_range(start=df.index.min(), end=df.index.max(), freq='D')
-    df = df.reindex(full_range)
-    df = df.reset_index().rename(columns={'index': 'Forecast Issued'})
+
+def forecast_time_columns(issue_times, start_times):
+    """
+    Builds the three time columns that lead every forecast dataframe.
+
+    Parameters
+    ----------
+    issue_times: array-like of datetimes
+        When each forecast was issued.
+    start_times: array-like of datetimes
+        Start (00 UT) of the first period in each forecast's table, i.e. the start of
+        the 3hrKp slot or the 1dAp day.
+
+    Returns
+    -------
+    time_cols: dict
+        'Forecast Issued', 'Forecast Start' and 'Start Offset (hr)' (Start - Issued, in hours,
+        rounded to 0.01; negative when the table begins before the issue time).
+    """
+
+    issued = np.array(issue_times, dtype='datetime64[ns]')
+    start = np.array(start_times, dtype='datetime64[ns]')
+    offset = np.round((start - issued) / np.timedelta64(1, 'h'), 2)
+
+    return {'Forecast Issued': issued, 'Forecast Start': start, 'Start Offset (hr)': offset}
+
+
+def infer_missing_forecast_start(df):
+    """
+    Fills 'Forecast Start' for slots that have no report.
+
+    A missing slot gets slot + the most common (Forecast Start - slot) gap among reports
+    in slots at the same time of day. E.g. geomag_forecast reports always start the day
+    after issue, so a missing 2022-11-16 slot gets Forecast Start 2022-11-17 00:00.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Forecast dataframe indexed by issue slot, with a 'Forecast Start' column.
+
+    Returns
+    -------
+    forecast_start: pandas.Series
+        'Forecast Start' with missing values inferred. Stays NaT if no report shares that slot's time of day.
+    """
+
+    slots = df.index.to_series()
+    gap = df['Forecast Start'] - slots
+    slot_time_of_day = slots - slots.dt.floor('D')
+
+    typical_gap = gap.groupby(slot_time_of_day).transform(lambda g: g.mode().iloc[0] if g.notna().any() else pd.NaT)
+
+    return df['Forecast Start'].fillna(slots + typical_gap)
+
+
+def fill_nans_func(df, freq='D'):
+    """
+    Inserts an all-NaN row for every issue slot with no report.
+
+    Each report is assigned to the slot of length freq that contains its issue time
+    (Forecast Issued floored to freq). So a report issued at 22:05 fills the slot for
+    its day without needing to sit on a grid point.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Forecast dataframe with a datetime 'Forecast Issued' column, at most one report per slot.
+    freq: str, optional
+        Issue cadence of the report, as a pandas frequency string. Default is 'D' (one report per day).
+
+    Returns
+    -------
+    df: pandas.DataFrame
+        One row per slot from the first to the last report, in order. Missing slots have
+        'Forecast Issued' = NaT, 'Start Offset (hr)' and forecast values NaN, and an inferred
+        'Forecast Start' (see infer_missing_forecast_start) if that column exists.
+    """
+
+    slots = df['Forecast Issued'].dt.floor(freq)
+
+    if slots.duplicated().any():
+        duplicate_slots = sorted(set(slots[slots.duplicated()]))
+        raise ValueError(f'More than one report issued in the same {freq} slot: {duplicate_slots}')
+
+    full_range = pd.date_range(start=slots.min(), end=slots.max(), freq=freq)
+
+    # Index by slot (the 'Forecast Issued' column is kept) and insert missing slots
+    df = df.set_index(slots).reindex(full_range)
+
+    if 'Forecast Start' in df.columns:
+        df['Forecast Start'] = infer_missing_forecast_start(df)
+
+    df = df.reset_index(drop=True)
 
     return df
+
+
+def extract_issue_time_from_file(file):
+    """
+    Reads the issue time from the header of a SWPC text product.
+
+    The header line looks like ':Issued: 2022 Nov 14 2205 UTC'. three_day_forecast
+    reports write it without the leading ':'.
+
+    Parameters
+    ----------
+    file: (str | pathlib.Path)
+        Path to the report.
+
+    Returns
+    -------
+    issue_time: dt.datetime
+        Issue time of the report in UTC.
+    """
+
+    with open(file, 'r', encoding='utf-8') as f:
+
+        for line in f:
+
+            if line.lstrip(':').startswith('Issued:'):
+
+                parts = line.split()
+
+                return dt.datetime.strptime(' '.join(parts[1:5]), '%Y %b %d %H%M')
+
+    raise ValueError(f'No issue time found in {file}')
+
+
+def extract_geomag_forecast_start_from_file(file, issue_time):
+    """
+    Reads the first day of the Kp table in a geomag_forecast report.
+
+    The table header (the line above '00-03UT') looks like '   Nov 15    Nov 16    Nov 17'
+    and has no year, so the year is taken from issue_time (and moved forward for Dec -> Jan).
+
+    Parameters
+    ----------
+    file: (str | pathlib.Path)
+        Path to the report.
+    issue_time: dt.datetime
+        Issue time of the report, from extract_issue_time_from_file.
+
+    Returns
+    -------
+    forecast_start: dt.datetime
+        00 UT on the first day of the forecast table.
+    """
+
+    with open(file, 'r', encoding='utf-8') as f:
+        lines = [line for line in f]
+
+    for i in range(len(lines)):
+
+        if '00-03UT' in lines[i]:
+
+            parts = lines[i-1].split()
+            forecast_start = dt.datetime.strptime(f'{issue_time.year} {parts[0]} {parts[1]}', '%Y %b %d')
+
+            # Report issued in December forecasting January
+            if (forecast_start - issue_time).days < -180:
+                forecast_start = forecast_start.replace(year=forecast_start.year + 1)
+
+            return forecast_start
+
+    raise ValueError(f'No Kp table found in {file}')
+
+
+def extract_daypre_forecast_start_from_file(file):
+    """
+    Reads the first prediction date of a daypre report from its
+    ':Prediction_dates:   2013 Dec 23   2013 Dec 24   2013 Dec 25' line.
+
+    Returns
+    -------
+    forecast_start: dt.datetime
+        00 UT on the first prediction date.
+    """
+
+    with open(file, 'r', encoding='utf-8') as f:
+
+        for line in f:
+
+            if line.startswith(':Prediction_dates:'):
+
+                parts = line.split()
+
+                return dt.datetime.strptime(' '.join(parts[1:4]), '%Y %b %d')
+
+    raise ValueError(f'No prediction dates found in {file}')
+
+
+def list_report_files(dir_path):
+    """
+    Lists the report files in a directory, skipping hidden files such as .DS_Store.
+
+    Returns
+    -------
+    files: list
+        Sorted list of pathlib.Path objects.
+    """
+
+    return sorted(p for p in Path(dir_path).iterdir() if p.is_file() and p.name[0] != ".")
 
 def extract_daypre_ap_from_file(file, ap_lists):
 
@@ -82,11 +278,10 @@ def get_daypre_forecast(fill_nans=True, test=False):
         dir_path = Path(f'testing/resources/testing_files/testing_daypre')
         save_path_lead = test
 
-    last_ind = 8
-    raw_dt_strings = [p.name[:last_ind] for p in dir_path.iterdir() if p.is_file()]
-    raw_file_strings = [p for p in dir_path.iterdir() if p.is_file()]
-    unsorted_dt_list = np.array([dt.date(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8])) for p in raw_dt_strings], dtype='datetime64[ns]')
-    
+    raw_file_strings = list_report_files(dir_path)
+    issue_times = [extract_issue_time_from_file(p) for p in raw_file_strings]
+    start_times = [extract_daypre_forecast_start_from_file(p) for p in raw_file_strings]
+
     # Initialize lists to store daily Ap forecast
     ap_lists = [[] for i in range(3)]
 
@@ -94,8 +289,8 @@ def get_daypre_forecast(fill_nans=True, test=False):
     for file in raw_file_strings:
 
         extract_daypre_ap_from_file(file=file, ap_lists=ap_lists)
-    
-    ap_dict = {'Forecast Issued': unsorted_dt_list}
+
+    ap_dict = forecast_time_columns(issue_times, start_times)
     for i in range(len(ap_lists)):
         ap_dict[f'{i+1}dAp'] = np.array(ap_lists[i], dtype=int)
 
@@ -124,10 +319,9 @@ def get_geomag_forecast(fill_nans=True, test=False):
         save_path_lead = test
         
 
-    last_ind = 8
-    raw_dt_strings = [p.name[:last_ind] for p in dir_path.iterdir() if p.is_file() and p.name[0] != "."]
-    raw_file_strings = [p for p in dir_path.iterdir() if p.is_file() and p.name[0] != "."]
-    unsorted_dt_list = np.array([dt.date(year=int(p[0:4]), month=int(p[4:6]), day=int(p[6:8])) for p in raw_dt_strings], dtype='datetime64[ns]')
+    raw_file_strings = list_report_files(dir_path)
+    issue_times = [extract_issue_time_from_file(p) for p in raw_file_strings]
+    start_times = [extract_geomag_forecast_start_from_file(p, t) for p, t in zip(raw_file_strings, issue_times)]
 
     kp_lists = [[] for i in range(24)]
     ap_lists = [[] for i in range(3)]
@@ -140,11 +334,12 @@ def get_geomag_forecast(fill_nans=True, test=False):
         extract_geomag_forecast_ap_from_file(file=file,
                                              ap_lists=ap_lists)
         
-    kp_dict = {'Forecast Issued': unsorted_dt_list}
+    # The Ap and Kp tables in a geomag_forecast report start on the same day
+    kp_dict = forecast_time_columns(issue_times, start_times)
     for i in range(len(kp_lists)):
         kp_dict[f'{3*(i+1)}hrKp'] = np.array(kp_lists[i], dtype=float)
 
-    ap_dict = {'Forecast Issued': unsorted_dt_list}
+    ap_dict = forecast_time_columns(issue_times, start_times)
     for i in range(len(ap_lists)):
         ap_dict[f'{i+1}dAp'] = np.array(ap_lists[i], dtype=int)
 
@@ -196,14 +391,23 @@ def extract_Kp_from_SWPC_sheet(fill_nans=True, test=False):
     df_wide = df_wide[ordered_cols]
     df_wide.columns = [f'{3*(i+1)}hrKp' for i in range(len(ordered_cols))]
 
-    df_SWPC_Kp_7day = df_wide.round(2).sort_index().reset_index()
+    df_wide = df_wide.round(2).sort_index()
+
+    # The sheet has no issue time, so 'Forecast Issued' is the 'Forecast Day' date at 00:00.
+    # day1 is the day after 'Forecast Day': its values match the geomag_forecast report issued
+    # on 'Forecast Day' (which forecasts the next 3 days) for ~90% of dates, and no other offset matches.
+    issue_times = df_wide.index
+    start_times = issue_times + pd.Timedelta(days=1)
+    df_time_cols = pd.DataFrame(forecast_time_columns(issue_times, start_times))
+
+    df_SWPC_Kp_7day = pd.concat([df_time_cols, df_wide.reset_index(drop=True)], axis=1)
 
     # Fill missing forecast dates with Nan
     if fill_nans is True:
         df_SWPC_Kp_7day = fill_nans_func(df=df_SWPC_Kp_7day)
 
-    # 3 day forecast: issue date + first 24 three-hour lead times (3hrKp..72hrKp)
-    df_SWPC_Kp_3day = df_SWPC_Kp_7day[['Forecast Issued'] + [f'{3*(i+1)}hrKp' for i in range(24)]]
+    # 3 day forecast: time columns + first 24 three-hour lead times (3hrKp..72hrKp)
+    df_SWPC_Kp_3day = df_SWPC_Kp_7day[TIME_COLS + [f'{3*(i+1)}hrKp' for i in range(24)]]
 
     df_SWPC_Kp_7day.to_csv(f'{save_path_lead}/SWPC_7day_3hr_Kp.csv', index=False)
     df_SWPC_Kp_3day.to_csv(f'{save_path_lead}/SWPC_3day_3hr_Kp.csv', index=False)
@@ -252,7 +456,9 @@ def convert_Kp_forecast_to_ap(file_path):
 
     # Rename columns 3hrKp -> 3hrap
     df = df.rename(columns={c: c[:-2] + 'ap' for c in kp_cols})
-    df['Forecast Issued'] = pd.to_datetime(df['Forecast Issued'])
+    for col in ['Forecast Issued', 'Forecast Start']:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col])
 
     save_path = file_path.with_name(file_path.name.replace('Kp', 'ap'))
     df.to_csv(save_path, index=False)

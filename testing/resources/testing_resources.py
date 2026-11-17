@@ -7,21 +7,28 @@ daypre_test_files_dir = 'testing/resources/testing_files/testing_daypre'
 three_day_forecast_test_files_dir = 'testing/resources/testing_files/testing_three_day_forecast'
 
 
-expected_get_daypre_no_nans_dict = {'Forecast Issued': np.array([dt.date(2013, 12, 22), dt.date(2013, 12, 23), dt.date(2013, 12, 25)], dtype='datetime64[ns]'),
+expected_get_daypre_no_nans_dict = {'Forecast Issued': np.array([dt.datetime(2013, 12, 22, 22, 0), dt.datetime(2013, 12, 23, 22, 0), dt.datetime(2013, 12, 25, 22, 0)], dtype='datetime64[ns]'),
+                                'Forecast Start': np.array([dt.datetime(2013, 12, 23), dt.datetime(2013, 12, 24), dt.datetime(2013, 12, 26)], dtype='datetime64[ns]'),
+                                'Start Offset (hr)': [2.0, 2.0, 2.0],
                                 '1dAp': [5, 5, 10],
                                 '2dAp': [5, 10, 8],
                                 '3dAp': [10, 8, 5]}
 
 expected_get_daypre_no_nans = pd.DataFrame(expected_get_daypre_no_nans_dict)
 
-expected_get_daypre_nans_dict = {'Forecast Issued': np.array([dt.date(2013, 12, 22), dt.date(2013, 12, 23), dt.date(2013, 12, 24), dt.date(2013, 12, 25)], dtype='datetime64[ns]'),
+expected_get_daypre_nans_dict = {'Forecast Issued': np.array([dt.datetime(2013, 12, 22, 22, 0), dt.datetime(2013, 12, 23, 22, 0), 'NaT', dt.datetime(2013, 12, 25, 22, 0)], dtype='datetime64[ns]'),
+                             # Missing 2013-12-24 report: start inferred as the day after the issue slot
+                             'Forecast Start': np.array([dt.datetime(2013, 12, 23), dt.datetime(2013, 12, 24), dt.datetime(2013, 12, 25), dt.datetime(2013, 12, 26)], dtype='datetime64[ns]'),
+                             'Start Offset (hr)': [2.0, 2.0, np.nan, 2.0],
                              '1dAp': [5, 5, np.nan, 10],
                              '2dAp': [5, 10, np.nan, 8],
                              '3dAp': [10, 8, np.nan, 5]}
 
 expected_get_daypre_nans = pd.DataFrame(expected_get_daypre_nans_dict)
 
-expected_get_geomag_forecast_Kp_no_nans_dict = {'Forecast Issued': np.array([dt.date(2022, 11, 14), dt.date(2022, 11, 15), dt.date(2022, 11, 17)], dtype='datetime64[ns]'),
+expected_get_geomag_forecast_Kp_no_nans_dict = {'Forecast Issued': np.array([dt.datetime(2022, 11, 14, 22, 0), dt.datetime(2022, 11, 15, 22, 0), dt.datetime(2022, 11, 17, 22, 0)], dtype='datetime64[ns]'),
+                                         'Forecast Start': np.array([dt.datetime(2022, 11, 15), dt.datetime(2022, 11, 16), dt.datetime(2022, 11, 18)], dtype='datetime64[ns]'),
+                                         'Start Offset (hr)': [2.0, 2.0, 2.0],
                                          '3hrKp': [2.00, 1.67, 1.33], 
                                          '6hrKp': [2.00, 2.67, 1.67], 
                                          '9hrKp': [1.33, 2.00, 3.00], 
@@ -49,7 +56,9 @@ expected_get_geomag_forecast_Kp_no_nans_dict = {'Forecast Issued': np.array([dt.
 
 expected_get_geomag_forecast_Kp_no_nans = pd.DataFrame(expected_get_geomag_forecast_Kp_no_nans_dict)
 
-expected_get_geomag_forecast_Ap_no_nans_dict = {'Forecast Issued': np.array([dt.date(2022, 11, 14), dt.date(2022, 11, 15), dt.date(2022, 11, 17)], dtype='datetime64[ns]'),
+expected_get_geomag_forecast_Ap_no_nans_dict = {'Forecast Issued': np.array([dt.datetime(2022, 11, 14, 22, 0), dt.datetime(2022, 11, 15, 22, 0), dt.datetime(2022, 11, 17, 22, 0)], dtype='datetime64[ns]'),
+                                'Forecast Start': np.array([dt.datetime(2022, 11, 15), dt.datetime(2022, 11, 16), dt.datetime(2022, 11, 18)], dtype='datetime64[ns]'),
+                                'Start Offset (hr)': [2.0, 2.0, 2.0],
                                 '1dAp': [10, 8, 10],
                                 '2dAp': [10, 5, 18],
                                 '3dAp': [5, 8, 28]}
@@ -57,6 +66,8 @@ expected_get_geomag_forecast_Ap_no_nans_dict = {'Forecast Issued': np.array([dt.
 expected_get_geomag_forecast_Ap_no_nans = pd.DataFrame(expected_get_geomag_forecast_Ap_no_nans_dict)
 
 expected_extract_kp_from_SWPC_sheet_7day_dict = {'Forecast Issued':  np.array([dt.date(2011, 11, 28), dt.date(2012, 9, 24)], dtype='datetime64[ns]'),
+                                                 'Forecast Start': np.array([dt.date(2011, 11, 29), dt.date(2012, 9, 25)], dtype='datetime64[ns]'),
+                                                 'Start Offset (hr)': [24.0, 24.0],
                                                  '3hrKp': [1.00, 1.33],
                                                  '6hrKp': [1.00, 1.67],
                                                  '9hrKp': [1.00, 1.33],
@@ -118,6 +129,8 @@ expected_extract_kp_from_SWPC_sheet_7day = pd.DataFrame(expected_extract_kp_from
 
 
 expected_extract_kp_from_SWPC_sheet_3day_dict = {'Forecast Issued':  np.array([dt.date(2011, 11, 28), dt.date(2012, 9, 24)], dtype='datetime64[ns]'),
+                                                 'Forecast Start': np.array([dt.date(2011, 11, 29), dt.date(2012, 9, 25)], dtype='datetime64[ns]'),
+                                                 'Start Offset (hr)': [24.0, 24.0],
                                                  '3hrKp': [1.00, 1.33],
                                                  '6hrKp': [1.00, 1.67],
                                                  '9hrKp': [1.00, 1.33],
@@ -146,7 +159,9 @@ expected_extract_kp_from_SWPC_sheet_3day_dict = {'Forecast Issued':  np.array([d
 expected_extract_kp_from_SWPC_sheet_3day = pd.DataFrame(expected_extract_kp_from_SWPC_sheet_3day_dict)
 
 
-expected_convert_Kp_forecast_to_ap_dict = {'Forecast Issued': np.array([dt.date(2011, 11, 28), dt.date(2011, 11, 29)], dtype='datetime64[ns]'),
+expected_convert_Kp_forecast_to_ap_dict = {'Forecast Issued': np.array([dt.date(2011, 11, 28), 'NaT'], dtype='datetime64[ns]'),
+                                           'Forecast Start': np.array([dt.date(2011, 11, 29), dt.date(2011, 11, 30)], dtype='datetime64[ns]'),
+                                           'Start Offset (hr)': [24.0, np.nan],
                                            '3hrap': [2, np.nan],
                                            '6hrap': [22, np.nan],
                                            '9hrap': [400, np.nan]}

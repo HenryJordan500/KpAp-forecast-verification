@@ -21,6 +21,144 @@ class TestFillNansFunc(unittest.TestCase):
 
         expected_fill_nans_func = t.expected_get_daypre_nans
         pdt.assert_frame_equal(result_fill_nans_func, expected_fill_nans_func)
+
+    def test_off_grid_issue_times_kept(self):
+
+        # Issue times vary within the day and are not on a 3 hr grid; 2022-11-15 is missing
+        df = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-11-13 22:05', '2022-11-14 22:10', '2022-11-16 22:00']),
+                           '1dAp': [5, 7, 9]})
+
+        result = efu.fill_nans_func(df=df)
+
+        expected = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-11-13 22:05', '2022-11-14 22:10', pd.NaT, '2022-11-16 22:00']),
+                                 '1dAp': [5, 7, np.nan, 9]})
+        pdt.assert_frame_equal(result, expected)
+
+    def test_no_missing_slots_unchanged(self):
+
+        df = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-11-13 22:05', '2022-11-14 22:30']),
+                           '1dAp': [5.0, 7.0]})
+
+        result = efu.fill_nans_func(df=df)
+
+        pdt.assert_frame_equal(result, df)
+
+    def test_twelve_hour_cadence(self):
+
+        # three_day_forecast style: issued 00:30 and 12:30, the 2022-03-25 12:30 report is missing
+        df = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-03-25 00:30', '2022-03-26 00:30']),
+                           '3hrKp': [3.0, 2.0]})
+
+        result = efu.fill_nans_func(df=df, freq='12h')
+
+        expected = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-03-25 00:30', pd.NaT, '2022-03-26 00:30']),
+                                 '3hrKp': [3.0, np.nan, 2.0]})
+        pdt.assert_frame_equal(result, expected)
+
+    def test_missing_forecast_start_inferred(self):
+
+        # geomag style: each report starts the day after issue, 2022-11-15 report missing
+        df = pd.DataFrame(efu.forecast_time_columns(issue_times=pd.to_datetime(['2022-11-14 22:05', '2022-11-16 22:10']),
+                                                    start_times=pd.to_datetime(['2022-11-15', '2022-11-17'])))
+        df['1dAp'] = [5, 9]
+
+        result = efu.fill_nans_func(df=df)
+
+        expected = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-11-14 22:05', pd.NaT, '2022-11-16 22:10']),
+                                 'Forecast Start': pd.to_datetime(['2022-11-15', '2022-11-16', '2022-11-17']),
+                                 'Start Offset (hr)': [1.92, np.nan, 1.83],
+                                 '1dAp': [5, np.nan, 9]})
+        pdt.assert_frame_equal(result, expected)
+
+    def test_missing_forecast_start_inferred_per_time_of_day(self):
+
+        # three_day_forecast style: both the 00:30 and the 12:30 report start at 00 UT that day,
+        # so the gap from the issue slot is 0 hr for 00:00 slots and -12 hr for 12:00 slots
+        df = pd.DataFrame(efu.forecast_time_columns(issue_times=pd.to_datetime(['2022-03-25 00:30', '2022-03-25 12:30', '2022-03-26 00:30', '2022-03-27 00:30', '2022-03-27 12:30']),
+                                                    start_times=pd.to_datetime(['2022-03-25', '2022-03-25', '2022-03-26', '2022-03-27', '2022-03-27'])))
+
+        result = efu.fill_nans_func(df=df, freq='12h')
+
+        expected_start = pd.Series(pd.to_datetime(['2022-03-25', '2022-03-25', '2022-03-26', '2022-03-26', '2022-03-27', '2022-03-27']), name='Forecast Start')
+        pdt.assert_series_equal(result['Forecast Start'], expected_start)
+        self.assertTrue(pd.isna(result['Forecast Issued'][3]))
+        self.assertEqual(result['Start Offset (hr)'][1], -12.5)
+
+    def test_two_reports_in_one_slot_raises(self):
+
+        df = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2022-11-13 01:00', '2022-11-13 22:05']),
+                           '1dAp': [5, 7]})
+
+        with self.assertRaises(ValueError):
+            efu.fill_nans_func(df=df)
+
+class TestExtractIssueTimeFromFile(unittest.TestCase):
+
+    def test_geomag_forecast(self):
+
+        file = 'testing/resources/testing_files/testing_geomag_forecast/20221114geomag_forecast.txt'
+
+        self.assertEqual(efu.extract_issue_time_from_file(file), dt.datetime(2022, 11, 14, 22, 0))
+
+    def test_daypre(self):
+
+        file = 'testing/resources/testing_files/testing_daypre/20131222daypre.txt'
+
+        self.assertEqual(efu.extract_issue_time_from_file(file), dt.datetime(2013, 12, 22, 22, 0))
+
+    def test_three_day_forecast_no_leading_colon(self):
+
+        file = 'testing/resources/testing_files/testing_three_day_forecast/202203251230three_day_forecast.txt'
+
+        self.assertEqual(efu.extract_issue_time_from_file(file), dt.datetime(2022, 3, 25, 12, 30))
+
+    def test_missing_header_raises(self):
+
+        with tempfile.TemporaryDirectory() as d:
+            file = Path(d) / 'no_header.txt'
+            file.write_text(':Product: something\nno issue line here\n')
+
+            with self.assertRaises(ValueError):
+                efu.extract_issue_time_from_file(file)
+
+class TestExtractForecastStartFromFile(unittest.TestCase):
+
+    def test_geomag_forecast(self):
+
+        file = 'testing/resources/testing_files/testing_geomag_forecast/20221114geomag_forecast.txt'
+
+        result = efu.extract_geomag_forecast_start_from_file(file, issue_time=dt.datetime(2022, 11, 14, 22, 0))
+
+        self.assertEqual(result, dt.datetime(2022, 11, 15))
+
+    def test_geomag_forecast_december_to_january(self):
+
+        with tempfile.TemporaryDirectory() as d:
+            file = Path(d) / '20221231geomag_forecast.txt'
+            file.write_text('NOAA Kp index forecast 01 Jan - 03 Jan\n'
+                            '             Jan 01    Jan 02    Jan 03\n'
+                            '00-03UT        2.00      2.67      1.67\n')
+
+            result = efu.extract_geomag_forecast_start_from_file(file, issue_time=dt.datetime(2022, 12, 31, 22, 5))
+
+        self.assertEqual(result, dt.datetime(2023, 1, 1))
+
+    def test_daypre(self):
+
+        file = 'testing/resources/testing_files/testing_daypre/20131222daypre.txt'
+
+        self.assertEqual(efu.extract_daypre_forecast_start_from_file(file), dt.datetime(2013, 12, 23))
+
+class TestForecastTimeColumns(unittest.TestCase):
+
+    def test_offsets(self):
+
+        result = efu.forecast_time_columns(issue_times=pd.to_datetime(['2022-11-14 22:05', '2022-03-25 12:30']),
+                                           start_times=pd.to_datetime(['2022-11-15', '2022-03-25']))
+
+        self.assertEqual(list(result.keys()), efu.TIME_COLS)
+        npt.assert_array_equal(result['Start Offset (hr)'], [1.92, -12.5])
+
 class TestExtractDaypreApFromFile(unittest.TestCase):
 
     def test_correct_vals(self):

@@ -1,6 +1,7 @@
 rule all:
     input:
         "analysis/geomag_forecast_calander.png",
+        "analysis/SWPC_7day_3hr_ap_calander.png",
         "extracted_data/3hour_Kp.csv",
         "extracted_data/daily_Ap.csv",
         "extracted_data/3hour_ap.csv",
@@ -104,10 +105,13 @@ rule create_baseline_forecasts:
 
 rule make_availability_plots:
     output:
-        "analysis/geomag_forecast_calander.png"
+        "analysis/geomag_forecast_calander.png",
+        "analysis/SWPC_7day_3hr_ap_calander.png",
     input:
+        "extracted_data/SWPC_7day_3hr_ap.csv",
         script = "scripts/make_calanders.py",
         utils = "src/make_calanders_utils.py",
+        config = "configs/calanders.yml",
         geomag = geomag_forecast_files,
     shell:
         """

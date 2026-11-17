@@ -33,15 +33,18 @@ All commands run from the repo root. Paths in `src/` are relative to the root, a
    - `persistence_*`: the value at issue time, repeated.
    - `recurrence_*`: the values from 27 days earlier (one solar rotation).
    - 3-hourly outputs are subsampled to one row per day (`index % 8 == 0`).
-4. `analysis/*_calander.png`: `src/make_calanders_utils.py`, driven by `configs/calanders.yml`. Each report type has an `include` flag and date range; only `geomag_forecast` is enabled.
+4. `analysis/*_calander.png`: `src/make_calanders_utils.py`, driven by `configs/calanders.yml`. Each report type has an `include` flag and date range; `geomag_forecast` and `SWPC_7day_3hr_ap` are enabled. Reports in `CSV_REPORTS` (the SWPC sheet) get availability from all-NaN rows of the `extracted_data/` CSV via `get_csv_dates`, not from raw report files.
 
 The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs are committed to git.
 
 **Forecast CSV schema** (shared by extracted and baseline forecasts):
-- Every row has a `Forecast Issued` date.
+- Every row starts with `Forecast Issued, Forecast Start, Start Offset (hr)` (`TIME_COLS` in `extract_forecasts_utils`).
+  - `Forecast Issued` is the true issue time parsed from the report's `:Issued:` header (e.g. 22:05, off the 3 hr grid). The SWPC sheet has no time, so its value is the date at 00:00.
+  - `Forecast Start` is 00 UT on the first day of the report's own table, so `3hrKp` is the slot starting there. It's the on-grid key for joining forecasts. geomag/daypre start the day after issue; for the SWPC sheet it is `Forecast Day` + 1 (its values match the geomag report issued on `Forecast Day`).
+  - `Start Offset (hr)` = Start − Issued. It can be negative (three_day_forecast tables begin before issue).
+- `fill_nans_func(df, freq)` places each report in the slot that holds its issue time (`Forecast Issued` floored to `freq`). Missing slots get NaT `Forecast Issued`, NaN values, and an inferred `Forecast Start`.
 - 3-hourly lead columns are `3hrKp … 72hrKp` (or `…ap`), and run to `168hr` for the SWPC 7-day sheet.
 - Daily columns are `1dAp, 2dAp, 3dAp`.
-- With `fill_nans=True`, missing issue dates get NaN rows (`fill_nans_func`).
 - File names follow `<source>_<horizon>_<cadence>_<quantity>.csv`.
 
 **Report types:**
@@ -53,4 +56,4 @@ The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs a
 - In `extract_forecasts_utils` and `create_baseline_forecasts_utils`, passing a directory path as `test` sends output there instead of the real output dir, and tests pass a `tempfile.TemporaryDirectory`. When reading inputs, a truthy `test` switches to fixtures in `testing/resources/testing_files/`.
 - Expected DataFrames live in `testing/resources/testing_resources.py`.
 - The baseline-forecast tests read the committed real `extracted_data/*.csv`, so they check specific historical values.
-- `test_make_calanders_utils.TestCreateDailyCalanderPlot.test_plot_exists` reads the real `raw_data/daypre`, which isn't downloaded by default, so it errors unless that directory exists.
+- In `make_calanders_utils.create_daily_calander_plot`, passing a directory as `test` both saves there and reads fixtures from `testing/resources/testing_files/`.
