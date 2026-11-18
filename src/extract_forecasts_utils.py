@@ -33,6 +33,30 @@ def forecast_time_columns(issue_times, start_times):
     return {'Forecast Issued': issued, 'Forecast Start': start, 'Start Offset (hr)': offset}
 
 
+def save_forecast_csv(df, file_path):
+    """
+    Writes a forecast dataframe to csv with 'Forecast Start' always shown as a full UTC
+    time (e.g. '2022-11-15 00:00:00').
+
+    pandas drops the time from a datetime column when every value is at midnight, which
+    would hide that Forecast Start is the start time of the first forecast bin.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Forecast dataframe. It is not modified.
+    file_path: (str | pathlib.Path)
+        Where to write the csv.
+    """
+
+    df_out = df.copy()
+
+    if 'Forecast Start' in df_out.columns:
+        df_out['Forecast Start'] = df_out['Forecast Start'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    df_out.to_csv(file_path, index=False)
+
+
 def infer_missing_forecast_start(df):
     """
     Fills 'Forecast Start' for slots that have no report.
@@ -304,7 +328,7 @@ def get_daypre_forecast(fill_nans=True, test=False):
     if fill_nans is True:
         df_daypre = fill_nans_func(df=df_daypre)
 
-    df_daypre.to_csv(f'{save_path_lead}/daypre_3day_daily_Ap.csv', index=False)
+    save_forecast_csv(df_daypre, f'{save_path_lead}/daypre_3day_daily_Ap.csv')
     
     return df_daypre
 
@@ -359,8 +383,8 @@ def get_geomag_forecast(fill_nans=True, test=False):
         df_geomag_forecast_Kp = fill_nans_func(df=df_geomag_forecast_Kp)
         df_geomag_forecast_Ap = fill_nans_func(df=df_geomag_forecast_Ap)
 
-    df_geomag_forecast_Kp.to_csv(f'{save_path_lead}/geomag_forecast_3day_3hr_Kp.csv', index=False)
-    df_geomag_forecast_Ap.to_csv(f'{save_path_lead}/geomag_forecast_3day_daily_Ap.csv', index=False)
+    save_forecast_csv(df_geomag_forecast_Kp, f'{save_path_lead}/geomag_forecast_3day_3hr_Kp.csv')
+    save_forecast_csv(df_geomag_forecast_Ap, f'{save_path_lead}/geomag_forecast_3day_daily_Ap.csv')
     
     return df_geomag_forecast_Kp, df_geomag_forecast_Ap
 
@@ -409,8 +433,8 @@ def extract_Kp_from_SWPC_sheet(fill_nans=True, test=False):
     # 3 day forecast: time columns + first 24 three-hour lead times (3hrKp..72hrKp)
     df_SWPC_Kp_3day = df_SWPC_Kp_7day[TIME_COLS + [f'{3*(i+1)}hrKp' for i in range(24)]]
 
-    df_SWPC_Kp_7day.to_csv(f'{save_path_lead}/SWPC_7day_3hr_Kp.csv', index=False)
-    df_SWPC_Kp_3day.to_csv(f'{save_path_lead}/SWPC_3day_3hr_Kp.csv', index=False)
+    save_forecast_csv(df_SWPC_Kp_7day, f'{save_path_lead}/SWPC_7day_3hr_Kp.csv')
+    save_forecast_csv(df_SWPC_Kp_3day, f'{save_path_lead}/SWPC_3day_3hr_Kp.csv')
 
     return df_SWPC_Kp_7day, df_SWPC_Kp_3day
 
@@ -461,7 +485,7 @@ def convert_Kp_forecast_to_ap(file_path):
             df[col] = pd.to_datetime(df[col])
 
     save_path = file_path.with_name(file_path.name.replace('Kp', 'ap'))
-    df.to_csv(save_path, index=False)
+    save_forecast_csv(df, save_path)
 
     return df
 

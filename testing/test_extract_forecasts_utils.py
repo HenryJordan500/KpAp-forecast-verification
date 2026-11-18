@@ -276,7 +276,36 @@ class TestGetGeomagForecast(unittest.TestCase):
 
         self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3day_3hr_Kp.csv').is_file())
         self.assertTrue(Path(f'{self.temp_path}/geomag_forecast_3day_daily_Ap.csv').is_file())
-    
+
+    def test_csv_forecast_start_has_time(self):
+
+        _ = efu.get_geomag_forecast(test=self.temp_path)
+
+        for name in ['geomag_forecast_3day_3hr_Kp.csv', 'geomag_forecast_3day_daily_Ap.csv']:
+            # Read as text so pandas doesn't re-parse the column
+            df = pd.read_csv(f'{self.temp_path}/{name}', dtype=str)
+            self.assertEqual(df['Forecast Issued'][0], '2022-11-14 22:00:00')
+            self.assertEqual(df['Forecast Start'][0], '2022-11-15 00:00:00')
+            # Missing 2022-11-16 report still shows its inferred start time
+            self.assertEqual(df['Forecast Start'][2], '2022-11-17 00:00:00')
+
+class TestSaveForecastCsv(unittest.TestCase):
+
+    def test_midnight_start_keeps_time_and_df_unchanged(self):
+
+        df = pd.DataFrame({'Forecast Issued': pd.to_datetime(['2011-11-28']),
+                           'Forecast Start': pd.to_datetime(['2011-11-29']),
+                           '3hrKp': [1.0]})
+        df_before = df.copy()
+
+        with tempfile.TemporaryDirectory() as d:
+            file = Path(d) / 'f.csv'
+            efu.save_forecast_csv(df, file)
+            text = file.read_text()
+
+        self.assertIn('2011-11-29 00:00:00', text)
+        pdt.assert_frame_equal(df, df_before)
+
 
 class TestExtractKpFromSWPCSheet(unittest.TestCase):
 

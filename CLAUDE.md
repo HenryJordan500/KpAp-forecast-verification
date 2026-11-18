@@ -28,11 +28,13 @@ All commands run from the repo root. Paths in `src/` are relative to the root, a
    - `src/extract_forecasts_utils.py` parses the forecast reports into wide CSVs.
    - `src/get_raw_kp_ap_utils.py` parses the GFZ fixed-width text (via `skiprows`) into long `Datetime,<value>` CSVs.
    - `convert_Kp_forecast_to_ap` maps Kp to ap through the standard thirds table. Values must round to an exact table entry, or `.index()` raises.
-3. `baseline_forecasts/`: `src/create_baseline_forecasts_utils.py` reads the observed CSVs in `extracted_data/`.
-   - `real_*`: the observed values over the next 3 days.
-   - `persistence_*`: the value at issue time, repeated.
-   - `recurrence_*`: the values from 27 days earlier (one solar rotation).
-   - 3-hourly outputs are subsampled to one row per day (`index % 8 == 0`).
+3. `baseline_forecasts/`: `src/create_baseline_forecasts_utils.py` reads the observed CSVs in `extracted_data/` and writes the shared forecast CSV schema (below). A vectorized core (`make_baseline_values` + `create_baseline_forecast`) sits behind the 9 `create_3day_*` wrappers.
+   - Each forecast is issued at T, the moment an observed slot finishes. `Forecast Issued = Forecast Start = T` and `Start Offset (hr) = 0`, so `3hrKp` is the slot [T, T+3h) and `1dAp` is the UT day starting at T.
+   - 3-hourly baselines have all 8 issue times per day. Daily Ap has one per day, issued at 00 UT.
+   - `real_*`: the observed values of the next 24 slots / 3 days.
+   - `persistence_*`: the last completed slot (or day) before T, repeated.
+   - `recurrence_*`: each target slot's value from 27 days (one solar rotation) earlier.
+   - Values are computed from the full 1932+ series, but only rows with `Forecast Issued >= start_date` (default `2011-01-01`) are kept, so the committed CSVs stay small.
 4. `analysis/*_calander.png`: `src/make_calanders_utils.py`, driven by `configs/calanders.yml`. Each report type has an `include` flag and date range; `geomag_forecast` and `SWPC_7day_3hr_ap` are enabled. Reports in `CSV_REPORTS` (the SWPC sheet) get availability from all-NaN rows of the `extracted_data/` CSV via `get_csv_dates`, not from raw report files.
 
 The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs are committed to git.
