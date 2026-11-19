@@ -7,6 +7,7 @@ import datetime as dt
 import pandas.testing as pdt
 import numpy.testing as npt
 import unittest
+from unittest import mock
 import tempfile
 
 import src.make_calanders_utils as mcu
@@ -38,7 +39,7 @@ class TestGetFileDates(unittest.TestCase):
         report_name = 'three_day_forecast'
         result_get_file_dates_three_day_forecast = mcu.get_file_dates(report_name=report_name, test=True)
 
-        expected_get_file_dates_three_day_forecast = ['202203250030', '202203251230', '202203260030']
+        expected_get_file_dates_three_day_forecast = ['202203250030', '202203251230', '202203260030', '202203270030']
 
         self.assertCountEqual(result_get_file_dates_three_day_forecast, expected_get_file_dates_three_day_forecast) 
     
@@ -61,6 +62,25 @@ class TestFileNamesToDatetimes(unittest.TestCase):
 
         expected_file_names_to_datetimes_three_day_forecast = [dt.datetime(2022, 3, 25, 00, 30), dt.datetime(2022, 3, 25, 12, 30), dt.datetime(2022, 3, 26, 00, 30)]
         self.assertCountEqual(result_file_names_to_datetimes_three_day_forecast, expected_file_names_to_datetimes_three_day_forecast)
+
+class TestGetCsvDates(unittest.TestCase):
+
+    def test_SWPC_7day_3hr_ap_dates(self):
+
+        report_name = 'SWPC_7day_3hr_ap'
+        result_get_csv_dates = mcu.get_csv_dates(report_name=report_name, test=True)
+
+        # 2011-11-29 is an all-NaN row (missing); 2011-12-01 is partially NaN (exists)
+        expected_get_csv_dates = [dt.date(2011, 11, 28), dt.date(2011, 11, 30), dt.date(2011, 12, 1)]
+
+        self.assertEqual(result_get_csv_dates, expected_get_csv_dates)
+
+    def test_SWPC_7day_3hr_ap_dates_are_dates(self):
+
+        result_get_csv_dates = mcu.get_csv_dates(report_name='SWPC_7day_3hr_ap', test=True)
+
+        for d in result_get_csv_dates:
+            self.assertIs(type(d), dt.date)
 
 class TestGenerateDateRange(unittest.TestCase):
 
@@ -90,6 +110,15 @@ class TestGenerateDateRange(unittest.TestCase):
 
         expected_generate_date_range_the_weekly = [dt.date(2026, 3, 8), dt.date(2026, 3, 15), dt.date(2026, 3, 22)]
         self.assertCountEqual(result_generate_date_range_the_weekly, expected_generate_date_range_the_weekly)
+
+    def test_SWPC_7day_3hr_ap_daterange(self):
+
+        report_name = 'SWPC_7day_3hr_ap'
+        dt_list_files_SWPC = [dt.date(2011, 11, 28), dt.date(2011, 11, 30)]
+        result_generate_date_range_SWPC = mcu.generate_date_range(dt_list_files=dt_list_files_SWPC, report_name=report_name)
+
+        expected_generate_date_range_SWPC = [dt.date(2011, 11, 28), dt.date(2011, 11, 29), dt.date(2011, 11, 30)]
+        self.assertEqual(result_generate_date_range_SWPC, expected_generate_date_range_SWPC)
 
 class TestGenerateDateMask(unittest.TestCase):
 
@@ -133,6 +162,8 @@ class TestCreateColorMap(unittest.TestCase):
 
         self.assertIsInstance(result_create_cmap, mcolors.ListedColormap)
 
+# Patch plt.show so the tests don't open plot windows; savefig still runs
+@mock.patch('src.make_calanders_utils.plt.show')
 class TestCreateDailyCalanderPlot(unittest.TestCase):
 
     def setUp(self):
@@ -144,12 +175,27 @@ class TestCreateDailyCalanderPlot(unittest.TestCase):
         
         self.temp_dir.cleanup()
 
-    def test_plot_exists(self):
+    def test_plot_exists(self, mock_show):
         
         mcu.create_daily_calander_plot(report_name='daypre', test=self.temp_path)
 
         self.assertTrue(Path(f'{self.temp_path}/daypre_calander.png').is_file())
-        
+
+    def test_SWPC_7day_3hr_ap_plot_exists(self, mock_show):
+
+        mcu.create_daily_calander_plot(report_name='SWPC_7day_3hr_ap', test=self.temp_path)
+
+        self.assertTrue(Path(f'{self.temp_path}/SWPC_7day_3hr_ap_calander.png').is_file())
+
+    def test_SWPC_7day_3hr_ap_plot_with_date_range(self, mock_show):
+
+        mcu.create_daily_calander_plot(report_name='SWPC_7day_3hr_ap',
+                                       start_date=dt.date(2011, 11, 29),
+                                       end_date=dt.date(2011, 11, 30),
+                                       test=self.temp_path)
+
+        self.assertTrue(Path(f'{self.temp_path}/SWPC_7day_3hr_ap_calander.png').is_file())
+
 
 if __name__ == '__main__':
     unittest.main()

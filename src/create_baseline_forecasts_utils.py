@@ -1,282 +1,216 @@
 import numpy as np
 import pandas as pd
 
-import datetime as dt
-from pathlib import Path
+from src.extract_forecasts_utils import forecast_time_columns, save_forecast_csv
+
+DEFAULT_START_DATE = '2011-01-01'
+
+KP_LEAD_COLS = [f'{3*(i+1)}hrKp' for i in range(24)]
+AP_3HR_LEAD_COLS = [f'{3*(i+1)}hrap' for i in range(24)]
+AP_DAILY_LEAD_COLS = [f'{i+1}dAp' for i in range(3)]
+
+THREE_HOUR = pd.Timedelta(hours=3)
+ONE_DAY = pd.Timedelta(days=1)
+
+# One solar rotation, in observation slots
+RECURRENCE_LAG_3HR = 27 * 8
+RECURRENCE_LAG_DAILY = 27
 
 
-def make_Ap_storage_list():
+def load_observed(file, value_col):
+    """
+    Reads an observed series from extracted_data/.
 
-    return [[] for i in range(3)]
+    Parameters
+    ----------
+    file: str
+        File name in extracted_data/, e.g. '3hour_Kp.csv'.
+    value_col: str
+        Name of the value column, e.g. 'Kp'.
+
+    Returns
+    -------
+    slot_times: pandas.DatetimeIndex
+        Start time of each observation slot.
+    values: numpy.ndarray
+        Observed value in each slot.
+    """
+
+    df = pd.read_csv(f'extracted_data/{file}')
+
+    return pd.DatetimeIndex(pd.to_datetime(df['Datetime'])), df[value_col].to_numpy()
 
 
-def make_Kp_storage_list():
+def make_baseline_values(values, method, n_leads, recurrence_lag):
+    """
+    Builds the forecast values of a baseline from an observed series.
 
-    return [[] for i in range(24)]
+    A forecast is issued when observed slot k finishes, so lead 1 is slot k+1.
 
+    Parameters
+    ----------
+    values: numpy.ndarray
+        Observed value in each slot, in time order with no gaps.
+    method: str
+        'real' (the observed values of slots k+1..k+n_leads), 'persistence' (the value of
+        slot k, repeated) or 'recurrence' (the value of each target slot recurrence_lag
+        slots earlier).
+    n_leads: int
+        Number of lead columns.
+    recurrence_lag: int
+        Recurrence lag in slots. Only used when method is 'recurrence'.
 
-def create_3day_Ap_from_real_vals(test=False):
+    Returns
+    -------
+    slot_idx: numpy.ndarray
+        Index k of the last observed slot before each forecast is issued.
+    forecast_values: numpy.ndarray
+        Shape (len(slot_idx), n_leads). Row i is the forecast issued when slot slot_idx[i] finishes.
+    """
 
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
+    n = len(values)
+    windows = np.lib.stride_tricks.sliding_window_view(values, n_leads)
+
+    if method == 'real':
+        slot_idx = np.arange(0, n - n_leads)
+        forecast_values = windows[slot_idx + 1]
+    elif method == 'persistence':
+        slot_idx = np.arange(0, n)
+        forecast_values = np.repeat(values[:, None], n_leads, axis=1)
+    elif method == 'recurrence':
+        # Issue slot must be observed (k <= n-1) and its window must exist (k+1-lag <= n-n_leads)
+        slot_idx = np.arange(recurrence_lag - 1, min(n, n - n_leads + recurrence_lag))
+        forecast_values = windows[slot_idx + 1 - recurrence_lag]
     else:
-        save_path_lead = test
+        raise ValueError(f'Unknown baseline method: {method}')
 
-    df_real_Ap = pd.read_csv('extracted_data/daily_Ap.csv')
+    return slot_idx, forecast_values
 
-    real_Ap_lists = make_Ap_storage_list()
 
-    Ap_values = df_real_Ap['Ap'].values
-    for i in range(len(df_real_Ap['Datetime'])-3):
-        for j in range(len(real_Ap_lists)):
-            real_Ap_lists[j].append(Ap_values[i+j+1])
+def create_baseline_forecast(method, obs_file, value_col, lead_cols, step, recurrence_lag,
+                             dtype, out_name, start_date=DEFAULT_START_DATE, test=False):
+    """
+    Builds a baseline forecast dataframe in the shared forecast schema and saves it to csv.
 
-    Ap_dict = {'Forecast Issued': df_real_Ap['Datetime'][:-3]}
-    for i in range(len(real_Ap_lists)):
-        Ap_dict[f'{i+1}dAp'] = np.array(real_Ap_lists[i], dtype=int)
+    Each forecast is issued at T, the end of an observed slot, and starts at T, so
+    'Forecast Issued' == 'Forecast Start' and 'Start Offset (hr)' is 0.
 
-    df_real_Ap_3day = pd.DataFrame(Ap_dict)
+    Parameters
+    ----------
+    method: str
+        'real', 'persistence' or 'recurrence' (see make_baseline_values).
+    obs_file: str
+        Observed series file in extracted_data/.
+    value_col: str
+        Value column of obs_file.
+    lead_cols: list of str
+        Names of the lead columns, e.g. ['3hrKp', ..., '72hrKp'].
+    step: pandas.Timedelta
+        Length of an observation slot (3 hours or 1 day).
+    recurrence_lag: int
+        Recurrence lag in slots.
+    dtype: type
+        dtype of the forecast values.
+    out_name: str
+        Output csv file name.
+    start_date: str, optional
+        Only forecasts issued at or after this time are kept.
+    test: (bool | str | pathlib.Path), optional
+        Directory to save to instead of baseline_forecasts/.
 
-    df_real_Ap_3day.to_csv(f'{save_path_lead}/real_3day_daily_Ap.csv', index=False)
+    Returns
+    -------
+    df: pandas.DataFrame
+        The saved forecast dataframe.
+    """
 
-    return df_real_Ap_3day
+    save_path_lead = 'baseline_forecasts' if test is False else test
 
+    slot_times, values = load_observed(obs_file, value_col)
 
-def create_3day_Kp_from_real_vals(test=False):
+    slot_idx, forecast_values = make_baseline_values(values=values,
+                                                     method=method,
+                                                     n_leads=len(lead_cols),
+                                                     recurrence_lag=recurrence_lag)
 
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
+    issue_times = slot_times[slot_idx] + step
 
-    df_real_Kp = pd.read_csv('extracted_data/3hour_Kp.csv')
+    forecast_dict = forecast_time_columns(issue_times, issue_times)
+    for i, col in enumerate(lead_cols):
+        forecast_dict[col] = forecast_values[:, i].astype(dtype)
 
-    real_Kp_lists = make_Kp_storage_list()
+    df = pd.DataFrame(forecast_dict)
+    df = df[df['Forecast Issued'] >= pd.Timestamp(start_date)].reset_index(drop=True)
 
-    Kp_values = df_real_Kp['Kp'].values
-    for i in range(len(df_real_Kp['Datetime'])-24):
-        for j in range(len(real_Kp_lists)):
-            real_Kp_lists[j].append(Kp_values[i+j+1])
+    save_forecast_csv(df, f'{save_path_lead}/{out_name}')
 
-    Kp_dict = {'Forecast Issued': df_real_Kp['Datetime'][:-24]}
-    for i in range(len(real_Kp_lists)):
-        Kp_dict[f'{3*(i+1)}hrKp'] = np.array(real_Kp_lists[i], dtype=float)
-    
-    df_real_Kp_3day = pd.DataFrame(Kp_dict)
+    return df
 
-    df_real_Kp_3day_filtered = df_real_Kp_3day[df_real_Kp_3day.index % 8 == 0].copy()
 
-    df_real_Kp_3day_filtered['Forecast Issued'] = df_real_Kp_3day_filtered['Forecast Issued'].str[:-9]
+def _daily_Ap(method, out_name, start_date, test):
 
-    df_real_Kp_3day.to_csv(f'{save_path_lead}/real_3day_3hr_Kp.csv', index=False)
+    return create_baseline_forecast(method=method, obs_file='daily_Ap.csv', value_col='Ap',
+                                    lead_cols=AP_DAILY_LEAD_COLS, step=ONE_DAY,
+                                    recurrence_lag=RECURRENCE_LAG_DAILY, dtype=int,
+                                    out_name=out_name, start_date=start_date, test=test)
 
-    return df_real_Kp_3day_filtered
 
+def _3hr_Kp(method, out_name, start_date, test):
 
-def create_3day_ap_from_real_vals(test=False):
+    return create_baseline_forecast(method=method, obs_file='3hour_Kp.csv', value_col='Kp',
+                                    lead_cols=KP_LEAD_COLS, step=THREE_HOUR,
+                                    recurrence_lag=RECURRENCE_LAG_3HR, dtype=float,
+                                    out_name=out_name, start_date=start_date, test=test)
 
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
 
-    df_real_ap = pd.read_csv('extracted_data/3hour_ap.csv')
+def _3hr_ap(method, out_name, start_date, test):
 
-    real_ap_lists = make_Kp_storage_list()
+    return create_baseline_forecast(method=method, obs_file='3hour_ap.csv', value_col='ap',
+                                    lead_cols=AP_3HR_LEAD_COLS, step=THREE_HOUR,
+                                    recurrence_lag=RECURRENCE_LAG_3HR, dtype=float,
+                                    out_name=out_name, start_date=start_date, test=test)
 
-    ap_values = df_real_ap['ap'].values
-    for i in range(len(df_real_ap['Datetime'])-24):
-        for j in range(len(real_ap_lists)):
-            real_ap_lists[j].append(ap_values[i+j+1])
 
-    ap_dict = {'Forecast Issued': df_real_ap['Datetime'][:-24]}
-    for i in range(len(real_ap_lists)):
-        ap_dict[f'{3*(i+1)}hrap'] = np.array(real_ap_lists[i], dtype=float)
-    
-    df_real_ap_3day = pd.DataFrame(ap_dict)
+def create_3day_Ap_from_real_vals(start_date=DEFAULT_START_DATE, test=False):
 
-    df_real_ap_3day_filtered = df_real_ap_3day[df_real_ap_3day.index % 8 == 0].copy()
+    return _daily_Ap('real', 'real_3day_daily_Ap.csv', start_date, test)
 
-    df_real_ap_3day_filtered['Forecast Issued'] = df_real_ap_3day_filtered['Forecast Issued'].str[:-9]
 
-    df_real_ap_3day.to_csv(f'{save_path_lead}/real_3day_3hr_ap.csv', index=False)
+def create_3day_Kp_from_real_vals(start_date=DEFAULT_START_DATE, test=False):
 
-    return df_real_ap_3day_filtered
+    return _3hr_Kp('real', 'real_3day_3hr_Kp.csv', start_date, test)
 
 
-def create_3day_Ap_persistence_forecast(test=False):
+def create_3day_ap_from_real_vals(start_date=DEFAULT_START_DATE, test=False):
 
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
+    return _3hr_ap('real', 'real_3day_3hr_ap.csv', start_date, test)
 
-    df_real_Ap = pd.read_csv('extracted_data/daily_Ap.csv')
 
-    persistence_Ap_lists = make_Ap_storage_list()
+def create_3day_Ap_persistence_forecast(start_date=DEFAULT_START_DATE, test=False):
 
-    Ap_values = df_real_Ap['Ap'].values
-    for i in range(len(df_real_Ap['Datetime'])):
-        for j in range(len(persistence_Ap_lists)):
-            persistence_Ap_lists[j].append(Ap_values[i])
+    return _daily_Ap('persistence', 'persistence_3day_daily_Ap.csv', start_date, test)
 
-    Ap_dict = {'Forecast Issued': df_real_Ap['Datetime']}
-    for i in range(len(persistence_Ap_lists)):
-        Ap_dict[f'{i+1}dAp'] = np.array(persistence_Ap_lists[i], dtype=int)
 
-    df_persistence_Ap_3day = pd.DataFrame(Ap_dict)
+def create_3day_Kp_persistence_forecast(start_date=DEFAULT_START_DATE, test=False):
 
-    df_persistence_Ap_3day.to_csv(f'{save_path_lead}/persistence_3day_daily_Ap.csv', index=False)
+    return _3hr_Kp('persistence', 'persistence_3day_3hr_Kp.csv', start_date, test)
 
-    return df_persistence_Ap_3day
 
+def create_3day_ap_persistence_forecast(start_date=DEFAULT_START_DATE, test=False):
 
-def create_3day_Kp_persistence_forecast(test=False):
+    return _3hr_ap('persistence', 'persistence_3day_3hr_ap.csv', start_date, test)
 
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
 
-    df_real_Kp = pd.read_csv('extracted_data/3hour_Kp.csv')
+def create_3day_Ap_recurrence_forecast(start_date=DEFAULT_START_DATE, test=False):
 
-    persistence_Kp_lists = make_Kp_storage_list()
+    return _daily_Ap('recurrence', 'recurrence_3day_daily_Ap.csv', start_date, test)
 
-    Kp_values = df_real_Kp['Kp'].values
-    for i in range(len(df_real_Kp['Datetime'])):
-        for j in range(len(persistence_Kp_lists)):
-            persistence_Kp_lists[j].append(Kp_values[i])
 
-    Kp_dict = {'Forecast Issued': df_real_Kp['Datetime']}
-    for i in range(len(persistence_Kp_lists)):
-        Kp_dict[f'{3*(i+1)}hrKp'] = np.array(persistence_Kp_lists[i], dtype=float)
+def create_3day_Kp_recurrence_forecast(start_date=DEFAULT_START_DATE, test=False):
 
-    df_persistence_Kp_3day = pd.DataFrame(Kp_dict)
+    return _3hr_Kp('recurrence', 'recurrence_3day_3hr_Kp.csv', start_date, test)
 
-    df_persistence_Kp_3day_filtered = df_persistence_Kp_3day[df_persistence_Kp_3day.index % 8 == 0].copy()
 
-    df_persistence_Kp_3day_filtered['Forecast Issued'] = df_persistence_Kp_3day_filtered['Forecast Issued'].str[:-9]
+def create_3day_ap_recurrence_forecast(start_date=DEFAULT_START_DATE, test=False):
 
-    df_persistence_Kp_3day_filtered.to_csv(f'{save_path_lead}/persistence_3day_3hr_Kp.csv', index=False)
-
-    return df_persistence_Kp_3day_filtered
-
-
-def create_3day_ap_persistence_forecast(test=False):
-
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
-
-    df_real_ap = pd.read_csv('extracted_data/3hour_ap.csv')
-
-    persistence_ap_lists = make_Kp_storage_list()
-
-    ap_values = df_real_ap['ap'].values
-    for i in range(len(df_real_ap['Datetime'])):
-        for j in range(len(persistence_ap_lists)):
-            persistence_ap_lists[j].append(ap_values[i])
-
-    ap_dict = {'Forecast Issued': df_real_ap['Datetime']}
-    for i in range(len(persistence_ap_lists)):
-        ap_dict[f'{3*(i+1)}hrap'] = np.array(persistence_ap_lists[i], dtype=float)
-
-    df_persistence_ap_3day = pd.DataFrame(ap_dict)
-
-    df_persistence_ap_3day_filtered = df_persistence_ap_3day[df_persistence_ap_3day.index % 8 == 0].copy()
-
-    df_persistence_ap_3day_filtered['Forecast Issued'] = df_persistence_ap_3day_filtered['Forecast Issued'].str[:-9]
-
-    df_persistence_ap_3day_filtered.to_csv(f'{save_path_lead}/persistence_3day_3hr_ap.csv', index=False)
-
-    return df_persistence_ap_3day_filtered
-
-
-def create_3day_Ap_recurrence_forecast(test=False):
-
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
-
-    df_real_Ap = pd.read_csv('extracted_data/daily_Ap.csv')
-
-    recurrence_Ap_lists = make_Ap_storage_list()
-
-    Ap_values = df_real_Ap['Ap'].values
-    for i in range(len(df_real_Ap['Datetime'][27:])):
-        for j in range(len(recurrence_Ap_lists)):
-            recurrence_Ap_lists[j].append(Ap_values[i+j])
-
-    Ap_dict = {'Forecast Issued': df_real_Ap['Datetime'][27:]}
-    for i in range(len(recurrence_Ap_lists)):
-        Ap_dict[f'{i+1}dAp'] = np.array(recurrence_Ap_lists[i], dtype=int)
-
-    df_recurrence_Ap_3day = pd.DataFrame(Ap_dict)
-
-    df_recurrence_Ap_3day.to_csv(f'{save_path_lead}/recurrence_3day_daily_Ap.csv', index=False)
-
-    return df_recurrence_Ap_3day
-
-
-def create_3day_Kp_recurrence_forecast(test=False):
-
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
-
-    df_real_Kp = pd.read_csv('extracted_data/3hour_Kp.csv')
-
-    recurrence_Kp_lists = make_Kp_storage_list()
-
-    Kp_values = df_real_Kp['Kp'].values
-    for i in range(len(df_real_Kp['Datetime'][27*8:])):
-        for j in range(len(recurrence_Kp_lists)):
-            recurrence_Kp_lists[j].append(Kp_values[i+j])
-
-    Kp_dict = {'Forecast Issued': df_real_Kp['Datetime'][27*8:]}
-    for i in range(len(recurrence_Kp_lists)):
-        Kp_dict[f'{3*(i+1)}hrKp'] = np.array(recurrence_Kp_lists[i], dtype=float)
-
-    df_recurrence_Kp_3day = pd.DataFrame(Kp_dict)
-
-    df_recurrence_Kp_3day_filtered = df_recurrence_Kp_3day[df_recurrence_Kp_3day.index % 8 == 0].copy()
-
-    df_recurrence_Kp_3day_filtered['Forecast Issued'] = df_recurrence_Kp_3day_filtered['Forecast Issued'].str[:-9]
-
-    df_recurrence_Kp_3day_filtered.to_csv(f'{save_path_lead}/recurrence_3day_3hr_Kp.csv', index=False)
-
-    return df_recurrence_Kp_3day_filtered
-
-
-def create_3day_ap_recurrence_forecast(test=False):
-
-    if test is False:
-        save_path_lead = 'baseline_forecasts'
-    else:
-        save_path_lead = test
-
-    df_real_ap = pd.read_csv('extracted_data/3hour_ap.csv')
-
-    recurrence_ap_lists = make_Kp_storage_list()
-
-    ap_values = df_real_ap['ap'].values
-    for i in range(len(df_real_ap['Datetime'][27*8:])):
-        for j in range(len(recurrence_ap_lists)):
-            recurrence_ap_lists[j].append(ap_values[i+j])
-
-    ap_dict = {'Forecast Issued': df_real_ap['Datetime'][27*8:]}
-    for i in range(len(recurrence_ap_lists)):
-        ap_dict[f'{3*(i+1)}hrap'] = np.array(recurrence_ap_lists[i], dtype=float)
-
-    df_recurrence_ap_3day = pd.DataFrame(ap_dict)
-
-    df_recurrence_ap_3day_filtered = df_recurrence_ap_3day[df_recurrence_ap_3day.index % 8 == 0].copy()
-
-    df_recurrence_ap_3day_filtered['Forecast Issued'] = df_recurrence_ap_3day_filtered['Forecast Issued'].str[:-9]
-
-    df_recurrence_ap_3day_filtered.to_csv(f'{save_path_lead}/recurrence_3day_3hr_ap.csv', index=False)
-
-    return df_recurrence_ap_3day_filtered
+    return _3hr_ap('recurrence', 'recurrence_3day_3hr_ap.csv', start_date, test)

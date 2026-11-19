@@ -1,12 +1,16 @@
 rule all:
     input:
         "analysis/geomag_forecast_calander.png",
+        "analysis/three_day_forecast_calander.png",
+        "analysis/SWPC_7day_3hr_ap_calander.png",
         "extracted_data/3hour_Kp.csv",
         "extracted_data/daily_Ap.csv",
         "extracted_data/3hour_ap.csv",
         "extracted_data/geomag_forecast_3day_3hr_Kp.csv",
         "extracted_data/geomag_forecast_3day_3hr_ap.csv",
         "extracted_data/geomag_forecast_3day_daily_Ap.csv",
+        "extracted_data/three_day_forecast_3day_3hr_Kp.csv",
+        "extracted_data/three_day_forecast_3day_3hr_ap.csv",
         "extracted_data/SWPC_7day_3hr_Kp.csv",
         "extracted_data/SWPC_3day_3hr_Kp.csv",
         "extracted_data/SWPC_7day_3hr_ap.csv",
@@ -27,6 +31,7 @@ checkpoint download_data_from_internet:
         "raw_data/Kp_ap_Ap_SN_F107_since_1932.txt",
         "raw_data/Kp_ap_since_1932.txt",
         geomag = directory("raw_data/geomag_forecast"),
+        three_day= directory("raw_data/three_day_forecast"),
     input:
         script = "scripts/download_swpc_forecasts_and_raw_vals.sh"
     shell:
@@ -35,6 +40,9 @@ checkpoint download_data_from_internet:
         n=$(ls {output.geomag}/*.txt 2>/dev/null | wc -l)
         if [ "$n" -eq 0 ]; then echo "No geomag_forecast .txt files downloaded" >&2; exit 1; fi
         echo "Downloaded $n geomag_forecast files"
+        n=$(ls {output.three_day}/*.txt 2>/dev/null | wc -l)
+        if [ "$n" -eq 0 ]; then echo "No three_day_forecast .txt files downloaded" >&2; exit 1; fi
+        echo "Downloaded $n three_day_forecast files"
         """
 
 
@@ -43,12 +51,19 @@ def geomag_forecast_files(wildcards):
     dates = glob_wildcards(f"{d}/{{date}}geomag_forecast.txt").date
     return expand(f"{d}/{{date}}geomag_forecast.txt", date=dates)
 
+def three_day_forecast_files(wildcards):
+    d = checkpoints.download_data_from_internet.get().output.three_day
+    dates = glob_wildcards(f"{d}/{{date}}three_day_forecast.txt").date
+    return expand(f"{d}/{{date}}three_day_forecast.txt", date=dates)
+
 
 rule extract_SWPC_forecast:
     output:
         "extracted_data/geomag_forecast_3day_3hr_Kp.csv",
         "extracted_data/geomag_forecast_3day_3hr_ap.csv",
         "extracted_data/geomag_forecast_3day_daily_Ap.csv",
+        "extracted_data/three_day_forecast_3day_3hr_Kp.csv",
+        "extracted_data/three_day_forecast_3day_3hr_ap.csv",
         "extracted_data/SWPC_7day_3hr_Kp.csv",
         "extracted_data/SWPC_3day_3hr_Kp.csv",
         "extracted_data/SWPC_7day_3hr_ap.csv",
@@ -58,6 +73,7 @@ rule extract_SWPC_forecast:
         script = "scripts/extract_forecasts.py",
         utils = "src/extract_forecasts_utils.py",
         geomag = geomag_forecast_files,
+        three_day = three_day_forecast_files,
     shell:
         """
         python -m scripts.extract_forecasts
@@ -104,11 +120,16 @@ rule create_baseline_forecasts:
 
 rule make_availability_plots:
     output:
-        "analysis/geomag_forecast_calander.png"
+        "analysis/geomag_forecast_calander.png",
+        "analysis/three_day_forecast_calander.png",
+        "analysis/SWPC_7day_3hr_ap_calander.png",
     input:
+        "extracted_data/SWPC_7day_3hr_ap.csv",
         script = "scripts/make_calanders.py",
         utils = "src/make_calanders_utils.py",
+        config = "configs/calanders.yml",
         geomag = geomag_forecast_files,
+        three_day = three_day_forecast_files,
     shell:
         """
         python -m scripts.make_calanders

@@ -1,17 +1,8 @@
 # To Do
 
 
-- Investigate where forecasts in SWPC sheet are coming from
-- Analysis yay
+- Decide how to evaluate SWPC forecasts given that they are only released once per day which significantly reduces lead times
+- Conduct analysis of SWPC binary storm prediction skill
+- Conduct analysis of SWPC storm onset skill
+- Conduct analysis of SWPC storm duration skill
 
-
-
-
-
-
-
-- Include time in forecast issued for geomag_forecast and baseline forecast
-- Clean up create baseline forecasts
-    - Add some sub functions
-    - See if I can combine any functions
-- Restrcuture tests to be more like ap/Kp conversion tests?

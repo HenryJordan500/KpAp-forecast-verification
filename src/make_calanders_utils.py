@@ -9,6 +9,11 @@ import datetime as dt
 from pathlib import Path
 
 
+# Reports whose availability is read from an extracted CSV (one row per issue date,
+# all-NaN rows for missing dates) rather than from a directory of raw report files.
+CSV_REPORTS = ['SWPC_7day_3hr_ap']
+
+
 def count_files(directory):
     """
     Counts the number of files in a directory.
@@ -88,6 +93,40 @@ def file_names_to_datetimes(list_files, report_name):
     return dt_list_files
 
 
+def get_csv_dates(report_name, test=False):
+    """
+    Reads an extracted forecast CSV and finds the issue dates that have a forecast.
+
+    Parameters
+    ----------
+    report_name: str
+        Name of the extracted CSV (without extension) to study. One of CSV_REPORTS, e.g. 'SWPC_7day_3hr_ap'
+    test: bool, optional
+        If True reads the testing fixture instead of extracted_data. Default is False
+
+    Returns
+    -------
+    dt_list_files: list
+        Sorted list (oldest to newest) of dates whose row contains at least one non-NaN forecast value.
+    """
+
+    if test is True:
+        file_path = Path(f'testing/resources/testing_files/testing_{report_name}.csv')
+    else:
+        file_path = Path(f'extracted_data/{report_name}.csv')
+
+    df = pd.read_csv(file_path, parse_dates=['Forecast Issued'])
+
+    # Missing issue dates are stored as rows where every forecast value is NaN.
+    # The time columns ('Forecast Start' is filled in even for missing reports) are not forecast values.
+    time_cols = [c for c in ['Forecast Issued', 'Forecast Start', 'Start Offset (hr)'] if c in df.columns]
+    has_forecast = df.drop(columns=time_cols).notna().any(axis=1)
+
+    dt_list_files = sorted(d.date() for d in df.loc[has_forecast, 'Forecast Issued'])
+
+    return dt_list_files
+
+
 def generate_date_range(dt_list_files, report_name):
     """
     Generates list of all dates between oldest and newest file for the report.
@@ -108,7 +147,7 @@ def generate_date_range(dt_list_files, report_name):
     start_date = dt_list_files[0]
     end_date = dt_list_files[-1]
 
-    if report_name == 'daypre' or report_name == 'geomag_forecast' or report_name == 'rsga':
+    if report_name in ['daypre', 'geomag_forecast', 'rsga'] + CSV_REPORTS:
         freq = '1d'
     if report_name == 'three_day_forecast':
         freq = '12h'
@@ -118,8 +157,8 @@ def generate_date_range(dt_list_files, report_name):
     full_datetime_range = pd.date_range(start=start_date,
                                         end=end_date,
                                         freq=freq).to_pydatetime().tolist()
-    
-    if report_name == 'daypre' or report_name == 'geomag_forecast' or report_name == 'the_weekly' or report_name == 'rsga':
+
+    if report_name in ['daypre', 'geomag_forecast', 'the_weekly', 'rsga'] + CSV_REPORTS:
         return [d.date() for d in full_datetime_range]
     if report_name == 'three_day_forecast':
         return full_datetime_range
@@ -225,7 +264,9 @@ def create_daily_calander_plot(report_name, start_date=None, end_date=None, widt
         Date to stop analysis. If None conducts analysis until the last avilable file. Default is None
     width: int, optional
         Number of files in each row of the plot. Default is 60.
-    
+    test: (str | pathlib.Path), optional
+        If given, reads testing fixtures and saves the plot to this directory instead of analysis. Default is None
+
     Returns
     -------
     None
@@ -236,10 +277,13 @@ def create_daily_calander_plot(report_name, start_date=None, end_date=None, widt
         save_path_lead = test
     else:
         save_path_lead = f'analysis'
-    
+
     # Generate image array
-    raw_list_files = get_file_dates(report_name)
-    dt_list_files = file_names_to_datetimes(raw_list_files, report_name)
+    if report_name in CSV_REPORTS:
+        dt_list_files = get_csv_dates(report_name, test=test is not None)
+    else:
+        raw_list_files = get_file_dates(report_name, test=test is not None)
+        dt_list_files = file_names_to_datetimes(raw_list_files, report_name)
     full_date_range = generate_date_range(dt_list_files, report_name)
     date_ints = generate_date_mask(dt_list_files, full_date_range)
 
@@ -291,7 +335,9 @@ def create_daily_calander_plot(report_name, start_date=None, end_date=None, widt
         title = f'3-Day Forecast:  3-day/3-hr Kp forecast, {(missing/total)*100:.2f}% Missing'
     if report_name == 'rsga':
         title = f'RSGA: 1/2/3-day F10.7cm forecast, {(missing/total)*100:.2f}% Missing'
-    
+    if report_name == 'SWPC_7day_3hr_ap':
+        title = f'SWPC 7-Day Kp Forecast Sheet: 7-day/3-hr ap forecast (converted from Kp), {(missing/total)*100:.2f}% Missing'
+
     title_font_size = 1.4*fig_width
 
     ax.set_title(title, fontsize=title_font_size, pad=20)
@@ -306,5 +352,6 @@ def create_daily_calander_plot(report_name, start_date=None, end_date=None, widt
     
     fig.savefig(f'{save_path_lead}/{report_name}_calander.png', bbox_inches='tight', facecolor='white')
     plt.show()
+    plt.close(fig)
 
     return
