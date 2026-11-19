@@ -97,9 +97,9 @@ expected_get_three_day_forecast_Kp_no_nans_dict = {'Forecast Issued': np.array([
 
 expected_get_three_day_forecast_Kp_no_nans = pd.DataFrame(expected_get_three_day_forecast_Kp_no_nans_dict)
 
-expected_extract_kp_from_SWPC_sheet_7day_dict = {'Forecast Issued':  np.array([dt.date(2011, 11, 29), dt.date(2012, 9, 25)], dtype='datetime64[ns]'),
+expected_extract_kp_from_SWPC_sheet_7day_dict = {'Forecast Issued':  np.array([dt.datetime(2011, 11, 28, 21), dt.datetime(2012, 9, 24, 21)], dtype='datetime64[ns]'),
                                                  'Forecast Start': np.array([dt.date(2011, 11, 29), dt.date(2012, 9, 25)], dtype='datetime64[ns]'),
-                                                 'Start Offset (hr)': [0.0, 0.0],
+                                                 'Start Offset (hr)': [3.0, 3.0],
                                                  '3hrKp': [1.00, 1.33],
                                                  '6hrKp': [1.00, 1.67],
                                                  '9hrKp': [1.00, 1.33],
@@ -160,9 +160,9 @@ expected_extract_kp_from_SWPC_sheet_7day_dict = {'Forecast Issued':  np.array([d
 expected_extract_kp_from_SWPC_sheet_7day = pd.DataFrame(expected_extract_kp_from_SWPC_sheet_7day_dict)
 
 
-expected_extract_kp_from_SWPC_sheet_3day_dict = {'Forecast Issued':  np.array([dt.date(2011, 11, 29), dt.date(2012, 9, 25)], dtype='datetime64[ns]'),
+expected_extract_kp_from_SWPC_sheet_3day_dict = {'Forecast Issued':  np.array([dt.datetime(2011, 11, 28, 21), dt.datetime(2012, 9, 24, 21)], dtype='datetime64[ns]'),
                                                  'Forecast Start': np.array([dt.date(2011, 11, 29), dt.date(2012, 9, 25)], dtype='datetime64[ns]'),
-                                                 'Start Offset (hr)': [0.0, 0.0],
+                                                 'Start Offset (hr)': [3.0, 3.0],
                                                  '3hrKp': [1.00, 1.33],
                                                  '6hrKp': [1.00, 1.67],
                                                  '9hrKp': [1.00, 1.33],
@@ -191,9 +191,9 @@ expected_extract_kp_from_SWPC_sheet_3day_dict = {'Forecast Issued':  np.array([d
 expected_extract_kp_from_SWPC_sheet_3day = pd.DataFrame(expected_extract_kp_from_SWPC_sheet_3day_dict)
 
 
-expected_convert_Kp_forecast_to_ap_dict = {'Forecast Issued': np.array([dt.date(2011, 11, 29), 'NaT'], dtype='datetime64[ns]'),
+expected_convert_Kp_forecast_to_ap_dict = {'Forecast Issued': np.array([dt.datetime(2011, 11, 28, 21), 'NaT'], dtype='datetime64[ns]'),
                                            'Forecast Start': np.array([dt.date(2011, 11, 29), dt.date(2011, 11, 30)], dtype='datetime64[ns]'),
-                                           'Start Offset (hr)': [0.0, np.nan],
+                                           'Start Offset (hr)': [3.0, np.nan],
                                            '3hrap': [2, np.nan],
                                            '6hrap': [22, np.nan],
                                            '9hrap': [400, np.nan]}

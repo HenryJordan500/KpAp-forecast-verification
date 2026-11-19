@@ -468,12 +468,11 @@ def extract_Kp_from_SWPC_sheet(fill_nans=True, test=False):
 
     # day1 is the day after 'Forecast Day': its values match the geomag_forecast report issued
     # on 'Forecast Day' (which forecasts the next 3 days) for ~90% of dates, and no other offset matches.
-    # The sheet has no issue time. It is declared issued at 00:00 on day1 (Forecast Day + 1), so
-    # 'Start Offset (hr)' is 0. Forecasters have the 21-00UT slot of Forecast Day by then: they
-    # sometimes revise day1 between the ~22 UT geomag_forecast and the 0030 three_day_forecast, and
-    # the sheet carries some of those revisions (see notebooks/SWPC_forecast_origin.ipynb).
+    # The sheet has no issue time. It is declared issued at 21:00 UTC on Forecast Day, just before
+    # the ~22 UT geomag_forecast it is anchored to, so 'Start Offset (hr)' is 3 (see HUMAN.md and
+    # notebooks/SWPC_forecast_origin.ipynb).
     forecast_days = df_wide.index
-    issue_times = forecast_days + pd.Timedelta(days=1)
+    issue_times = forecast_days + pd.Timedelta(hours=21)
     start_times = forecast_days + pd.Timedelta(days=1)
     df_time_cols = pd.DataFrame(forecast_time_columns(issue_times, start_times))
 

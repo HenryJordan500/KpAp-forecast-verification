@@ -70,8 +70,8 @@ class TestGetCsvDates(unittest.TestCase):
         report_name = 'SWPC_7day_3hr_ap'
         result_get_csv_dates = mcu.get_csv_dates(report_name=report_name, test=True)
 
-        # 2011-11-30 is an all-NaN row (missing); 2011-12-02 is partially NaN (exists)
-        expected_get_csv_dates = [dt.date(2011, 11, 29), dt.date(2011, 12, 1), dt.date(2011, 12, 2)]
+        # 2011-11-29 is an all-NaN row (missing); 2011-12-01 is partially NaN (exists)
+        expected_get_csv_dates = [dt.date(2011, 11, 28), dt.date(2011, 11, 30), dt.date(2011, 12, 1)]
 
         self.assertEqual(result_get_csv_dates, expected_get_csv_dates)
 
@@ -190,8 +190,8 @@ class TestCreateDailyCalanderPlot(unittest.TestCase):
     def test_SWPC_7day_3hr_ap_plot_with_date_range(self, mock_show):
 
         mcu.create_daily_calander_plot(report_name='SWPC_7day_3hr_ap',
-                                       start_date=dt.date(2011, 11, 30),
-                                       end_date=dt.date(2011, 12, 1),
+                                       start_date=dt.date(2011, 11, 29),
+                                       end_date=dt.date(2011, 11, 30),
                                        test=self.temp_path)
 
         self.assertTrue(Path(f'{self.temp_path}/SWPC_7day_3hr_ap_calander.png').is_file())

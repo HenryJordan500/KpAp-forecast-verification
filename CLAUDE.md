@@ -41,8 +41,8 @@ The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs a
 
 **Forecast CSV schema** (shared by extracted and baseline forecasts):
 - Every row starts with `Forecast Issued, Forecast Start, Start Offset (hr)` (`TIME_COLS` in `extract_forecasts_utils`).
-  - `Forecast Issued` is the true issue time parsed from the report's `:Issued:` header (e.g. 22:05, off the 3 hr grid). The SWPC sheet has no time. It is declared issued at `Forecast Day` + 1 00:00, when forecasters have the 21–00 UT slot (`notebooks/SWPC_forecast_origin.ipynb`), so `Start Offset (hr)` = 0. Its calendar is therefore keyed on `Forecast Day` + 1.
-  - `Forecast Start` is 00 UT on the first day of the report's own table, so `3hrKp` is the slot starting there. It's the on-grid key for joining forecasts. geomag/daypre start the day after issue; for the SWPC sheet it is `Forecast Day` + 1, the same as `Forecast Issued` (its values match the geomag report issued on `Forecast Day`).
+  - `Forecast Issued` is the true issue time parsed from the report's `:Issued:` header (e.g. 22:05, off the 3 hr grid). The SWPC sheet has no time. It is declared issued at 21:00 UTC on `Forecast Day`, just before the ~22 UT geomag_forecast it is anchored to (reasoning in `HUMAN.md`), so `Start Offset (hr)` = 3.
+  - `Forecast Start` is 00 UT on the first day of the report's own table, so `3hrKp` is the slot starting there. It's the on-grid key for joining forecasts. geomag/daypre start the day after issue; for the SWPC sheet it is `Forecast Day` + 1 (its values match the geomag report issued on `Forecast Day`).
   - `Start Offset (hr)` = Start − Issued. It can be negative (three_day_forecast tables begin before issue).
 - `fill_nans_func(df, freq)` places each report in the slot that holds its issue time (`Forecast Issued` floored to `freq`). Missing slots get NaT `Forecast Issued`, NaN values, and an inferred `Forecast Start`.
 - 3-hourly lead columns are `3hrKp … 72hrKp` (or `…ap`), and run to `168hr` for the SWPC 7-day sheet.
