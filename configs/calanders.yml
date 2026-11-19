@@ -26,7 +26,7 @@ rsga:
 
 SWPC_7day_3hr_ap:  # Read from extracted_data/SWPC_7day_3hr_ap.csv, not raw_data
   include: True
-  start_date: 2011-11-29  # Earliest issue date: 2011-11-29 (Forecast Day 2011-11-28 + 1)
+  start_date: 2011-11-28  # Earliest report date: 2011-11-28
   end_date: null
   width: 60
 

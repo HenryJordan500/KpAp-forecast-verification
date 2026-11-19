@@ -2,6 +2,10 @@
 
 ## Data Preprocessing
 
+### Forecast CSV File Structure
+
+Each forecast is stored in a wide csv file. The columnn is "Forecast Issued" which is the day and time the forecast was generated. The second column is "Forecast Start" which is the time at the begining of the window of the first forecasted Kp value. The third column is "Start Offset (hr)" which is the number of hours between the issue time and start time. Then the remaining columns indicate the the duration from the forecast start to the end of the forecasted 3-hour Kp window 
+
 ### SWPC Forecast Issue Time
 
 The SWPC Kp forecasts from the geomag_forecast and three_day_forecast reports include an issue time. The more extensive Kp forecast from the internal SWPC spreadsheet only provides a day that it was issued. It is a neccessary step in the analysis to determine a time at which it was issued in order to compare it to the correct baseline forecast. 
