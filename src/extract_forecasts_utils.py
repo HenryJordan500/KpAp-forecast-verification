@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+import re
 import datetime as dt
 from pathlib import Path
 
@@ -85,7 +86,7 @@ def infer_missing_forecast_start(df):
     return df['Forecast Start'].fillna(slots + typical_gap)
 
 
-def fill_nans_func(df, freq='D'):
+def fill_nans_func(df, freq='D', slots=None):
     """
     Inserts an all-NaN row for every issue slot with no report.
 
@@ -99,6 +100,10 @@ def fill_nans_func(df, freq='D'):
         Forecast dataframe with a datetime 'Forecast Issued' column, at most one report per slot.
     freq: str, optional
         Issue cadence of the report, as a pandas frequency string. Default is 'D' (one report per day).
+    slots: array-like of datetimes, optional
+        Slot of each report, one per row of df, used instead of Forecast Issued. Use it when a
+        report's issue time can fall outside its own slot (e.g. a 1230 three_day_forecast
+        issued late, after midnight). Each value is floored to freq.
 
     Returns
     -------
@@ -108,7 +113,10 @@ def fill_nans_func(df, freq='D'):
         'Forecast Start' (see infer_missing_forecast_start) if that column exists.
     """
 
-    slots = df['Forecast Issued'].dt.floor(freq)
+    if slots is None:
+        slots = df['Forecast Issued'].dt.floor(freq)
+    else:
+        slots = pd.Series(pd.to_datetime(slots), index=df.index).dt.floor(freq)
 
     if slots.duplicated().any():
         duplicate_slots = sorted(set(slots[slots.duplicated()]))
@@ -158,12 +166,14 @@ def extract_issue_time_from_file(file):
     raise ValueError(f'No issue time found in {file}')
 
 
-def extract_geomag_forecast_start_from_file(file, issue_time):
+def extract_kp_table_start_from_file(file, issue_time):
     """
-    Reads the first day of the Kp table in a geomag_forecast report.
+    Reads the first day of the 3 hourly Kp table in a geomag_forecast or three_day_forecast report.
 
     The table header (the line above '00-03UT') looks like '   Nov 15    Nov 16    Nov 17'
-    and has no year, so the year is taken from issue_time (and moved forward for Dec -> Jan).
+    and has no year, so the year is taken from issue_time, then moved forward for a report
+    issued in December whose table starts in January, or back for one issued in January
+    whose table starts in December (a late three_day_forecast).
 
     Parameters
     ----------
@@ -175,7 +185,7 @@ def extract_geomag_forecast_start_from_file(file, issue_time):
     Returns
     -------
     forecast_start: dt.datetime
-        00 UT on the first day of the forecast table.
+        00 UT on the first day of the Kp table.
     """
 
     with open(file, 'r', encoding='utf-8') as f:
@@ -191,10 +201,49 @@ def extract_geomag_forecast_start_from_file(file, issue_time):
             # Report issued in December forecasting January
             if (forecast_start - issue_time).days < -180:
                 forecast_start = forecast_start.replace(year=forecast_start.year + 1)
+            # Report issued in January with a table starting in December
+            elif (forecast_start - issue_time).days > 180:
+                forecast_start = forecast_start.replace(year=forecast_start.year - 1)
 
             return forecast_start
 
     raise ValueError(f'No Kp table found in {file}')
+
+
+def extract_geomag_forecast_start_from_file(file, issue_time):
+    """
+    Reads the first day of the Kp table in a geomag_forecast report (the day after issue).
+    See extract_kp_table_start_from_file.
+    """
+
+    return extract_kp_table_start_from_file(file, issue_time)
+
+
+def extract_three_day_forecast_start_from_file(file, issue_time):
+    """
+    Reads the first day of the Kp table in a three_day_forecast report (normally the issue
+    day, for both the 0030 and 1230 reports). See extract_kp_table_start_from_file.
+    """
+
+    return extract_kp_table_start_from_file(file, issue_time)
+
+
+def extract_three_day_forecast_slot_from_file_name(file):
+    """
+    Nominal issue slot of a three_day_forecast report, from the 12 character timestamp at the
+    start of its file name (e.g. '202203251230three_day_forecast.txt' -> 2022-03-25 12:30).
+
+    The 0030 and 1230 reports are occasionally issued late (a 1230 report issued at 00:20 the
+    next day), so the header issue time can fall in the next report's 12 hr slot. The file name
+    keeps the slot the report belongs to.
+
+    Returns
+    -------
+    slot_time: dt.datetime
+        Timestamp from the file name (not floored).
+    """
+
+    return dt.datetime.strptime(Path(file).name[:12], '%Y%m%d%H%M')
 
 
 def extract_daypre_forecast_start_from_file(file):
@@ -417,11 +466,15 @@ def extract_Kp_from_SWPC_sheet(fill_nans=True, test=False):
 
     df_wide = df_wide.round(2).sort_index()
 
-    # The sheet has no issue time, so 'Forecast Issued' is the 'Forecast Day' date at 00:00.
     # day1 is the day after 'Forecast Day': its values match the geomag_forecast report issued
     # on 'Forecast Day' (which forecasts the next 3 days) for ~90% of dates, and no other offset matches.
-    issue_times = df_wide.index
-    start_times = issue_times + pd.Timedelta(days=1)
+    # The sheet has no issue time. It is declared issued at 00:00 on day1 (Forecast Day + 1), so
+    # 'Start Offset (hr)' is 0. Forecasters have the 21-00UT slot of Forecast Day by then: they
+    # sometimes revise day1 between the ~22 UT geomag_forecast and the 0030 three_day_forecast, and
+    # the sheet carries some of those revisions (see notebooks/SWPC_forecast_origin.ipynb).
+    forecast_days = df_wide.index
+    issue_times = forecast_days + pd.Timedelta(days=1)
+    start_times = forecast_days + pd.Timedelta(days=1)
     df_time_cols = pd.DataFrame(forecast_time_columns(issue_times, start_times))
 
     df_SWPC_Kp_7day = pd.concat([df_time_cols, df_wide.reset_index(drop=True)], axis=1)
@@ -498,11 +551,146 @@ def extract_the_weekly_kp_from_file():
 def get_the_weekly_forecast():
     return
 
-def extract_three_day_forecast_kp_from_file():
+def extract_three_day_forecast_kp_from_file(file, kp_lists):
+    """
+    Appends the 24 values of the 'NOAA Kp index breakdown' table of a three_day_forecast
+    report to kp_lists, as strings.
+
+    Rows look like '12-15UT       5.33 (G1)    4.67 (G1)    3.67'. The '(G1)' style NOAA
+    scale tags are removed. Before 2022-11-15 the values are whole numbers ('5 (G1)').
+
+    Parameters
+    ----------
+    file: (str | pathlib.Path)
+        Path to the report.
+    kp_lists: list
+        24 lists, one per 3 hr lead time, ordered day 1 00-03UT ... day 1 21-00UT, day 2 ..., day 3 ...
+    """
+
+    with open(file, 'r', encoding='utf-8') as f:
+        lines = [line for line in f]
+
+    for i in range(len(lines)):
+
+        if '00-03UT' in lines[i]:
+
+            lines = lines[i:i+8]
+
+            break
+
+    for i in range(len(lines)):
+
+        parts = re.sub(r'\(G\d\)', '', lines[i]).split()
+
+        kp_lists[i].append(parts[1])
+        kp_lists[i+8].append(parts[2])
+        kp_lists[i+16].append(parts[3])
+
     return
 
-def get_three_day_forecast():
-    return
+
+def drop_repeated_reports(df):
+    """
+    Drops reports that repeat an earlier report exactly: the same 'Forecast Issued' and
+    the same forecast values.
+
+    A few three_day_forecast files are copies of the report before them (e.g.
+    202205221230three_day_forecast.txt holds the 2022-05-21 1230 report), so their
+    own slot has no report of its own.
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        Forecast dataframe, sorted in the order to keep (the first copy is kept).
+
+    Returns
+    -------
+    df: pandas.DataFrame
+        df without the repeated rows. The index is not reset.
+    """
+
+    value_cols = [c for c in df.columns if c not in TIME_COLS]
+
+    return df[~df.duplicated(subset=['Forecast Issued'] + value_cols, keep='first')]
+
+
+# three_day_forecast files skipped entirely by get_three_day_forecast, as if they were never
+# downloaded. Their slots come out as missing reports.
+THREE_DAY_FORECAST_EXCLUDED_FILES = {
+    # Kp table contains 3.37 (Oct 07 15-18UT), which is not a valid Kp value
+    '202510071230three_day_forecast.txt': 'invalid Kp value',
+    # 0030 reports whose header issue time reads ~12:25 the same day. Their Kp tables match the
+    # previous evening's geomag_forecast exactly, so the header time is wrong.
+    '202405140030three_day_forecast.txt': 'mistyped issue time (header 2024 May 14 1225)',
+    '202502110030three_day_forecast.txt': 'mistyped issue time (header 2025 Feb 11 1235)',
+    '202504260030three_day_forecast.txt': 'mistyped issue time (header 2025 Apr 26 1225)',
+}
+
+
+def get_three_day_forecast(fill_nans=True, test=False, exclude=None):
+    """
+    Extracts the 3 hourly Kp tables of every three_day_forecast report into
+    three_day_forecast_3day_3hr_Kp.csv, one row per 12 hr slot (0030 and 1230 reports).
+
+    Parameters
+    ----------
+    fill_nans: bool, optional
+        Insert NaN rows for slots with no report. Default True.
+    test: (False | str | pathlib.Path), optional
+        False reads raw_data/three_day_forecast and saves to extracted_data. Otherwise reads the
+        testing fixtures and saves to this directory.
+    exclude: collection of str, optional
+        File names to skip as if they did not exist. Default is THREE_DAY_FORECAST_EXCLUDED_FILES.
+
+    Returns
+    -------
+    df_three_day_forecast_Kp: pandas.DataFrame
+    """
+
+    if test is False:
+        dir_path = Path(f'raw_data/three_day_forecast')
+        save_path_lead = 'extracted_data'
+    else:
+        dir_path = Path(f'testing/resources/testing_files/testing_three_day_forecast')
+        save_path_lead = test
+
+    if exclude is None:
+        exclude = THREE_DAY_FORECAST_EXCLUDED_FILES
+
+    raw_file_strings = [p for p in list_report_files(dir_path) if p.name not in exclude]
+    issue_times = [extract_issue_time_from_file(p) for p in raw_file_strings]
+    start_times = [extract_three_day_forecast_start_from_file(p, t) for p, t in zip(raw_file_strings, issue_times)]
+    slot_times = [extract_three_day_forecast_slot_from_file_name(p) for p in raw_file_strings]
+
+    kp_lists = [[] for i in range(24)]
+
+    # Extract Kp forecast
+    for file in raw_file_strings:
+
+        extract_three_day_forecast_kp_from_file(file=file, kp_lists=kp_lists)
+
+    kp_dict = forecast_time_columns(issue_times, start_times)
+    for i in range(len(kp_lists)):
+        kp_dict[f'{3*(i+1)}hrKp'] = np.array(kp_lists[i], dtype=float)
+
+    # Store in dataframe, sorted by file name slot (the header issue time of a late report can sort out of order)
+    df_three_day_forecast_Kp = pd.DataFrame(kp_dict)
+    slots = pd.Series(pd.to_datetime(slot_times))
+    order = np.argsort(slots.to_numpy(), kind='stable')
+    df_three_day_forecast_Kp = df_three_day_forecast_Kp.iloc[order]
+
+    # Drop files that are copies of an earlier report, leaving their slot empty
+    df_three_day_forecast_Kp = drop_repeated_reports(df_three_day_forecast_Kp)
+    slots = slots.loc[df_three_day_forecast_Kp.index].to_numpy()
+    df_three_day_forecast_Kp.set_index(pd.Index([i for i in range(0, len(df_three_day_forecast_Kp['Forecast Issued']))]), inplace=True)
+
+    # Fill missing forecast slots (0030 and 1230 each day) with Nan, placing each report in its file name slot
+    if fill_nans is True:
+        df_three_day_forecast_Kp = fill_nans_func(df=df_three_day_forecast_Kp, freq='12h', slots=slots)
+
+    save_forecast_csv(df_three_day_forecast_Kp, f'{save_path_lead}/three_day_forecast_3day_3hr_Kp.csv')
+
+    return df_three_day_forecast_Kp
 
 def combine_daypre_geomag_ap_forecasts():
     return

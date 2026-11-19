@@ -1,0 +1,53 @@
+Product: 3-Day Forecast
+Issued: 2022 Mar 27 0030 UTC
+Prepared by the U.S. Dept. of Commerce, NOAA, Space Weather Prediction
+Center
+
+A. NOAA Geomagnetic Activity Observation and Forecast
+
+The greatest observed 3 hr Kp over the past 24 hours was 3 (below NOAA
+Scale levels).
+The greatest expected 3 hr Kp for Mar 27-Mar 29 2022 is 5 (NOAA Scale
+G1).
+
+NOAA Kp index breakdown Mar 27-Mar 29 2022
+
+            Mar 27     Mar 28     Mar 29
+00-03UT        3          4          2     
+03-06UT        2          3          1     
+06-09UT        2          3          1     
+09-12UT        2          2          1     
+12-15UT        4          2          1     
+15-18UT        4          1          1     
+18-21UT        5 (G1)     2          2     
+21-00UT        4          2          2     
+
+Rationale: G1 (Minor) geomagnetic storms are likely on Mar 27 due to
+anticipated impacts from the Mar 25 CME.
+
+B. NOAA Solar Radiation Activity Observation and Forecast
+
+Solar radiation, as observed by NOAA GOES-16 over the past 24 hours, was
+below S-scale storm level thresholds.
+
+Solar Radiation Storm Forecast for Mar 27-Mar 29 2022
+
+              Mar 27  Mar 28  Mar 29
+S1 or greater    1%      1%      1%
+
+Rationale: No S1 (Minor) or greater solar radiation storms are expected.
+No significant active region activity favorable for radiation storm
+production is forecast.
+
+C. NOAA Radio Blackout Activity and Forecast
+
+No radio blackouts were observed over the past 24 hours.
+
+Radio Blackout Forecast for Mar 27-Mar 29 2022
+
+              Mar 27        Mar 28        Mar 29
+R1-R2            5%            5%            5%
+R3 or greater    1%            1%            1%
+
+Rationale: No R1 (Minor) or greater radio blackouts are expected.  No
+significant active region flare activity is forecast.

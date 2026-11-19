@@ -41,8 +41,8 @@ The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs a
 
 **Forecast CSV schema** (shared by extracted and baseline forecasts):
 - Every row starts with `Forecast Issued, Forecast Start, Start Offset (hr)` (`TIME_COLS` in `extract_forecasts_utils`).
-  - `Forecast Issued` is the true issue time parsed from the report's `:Issued:` header (e.g. 22:05, off the 3 hr grid). The SWPC sheet has no time, so its value is the date at 00:00.
-  - `Forecast Start` is 00 UT on the first day of the report's own table, so `3hrKp` is the slot starting there. It's the on-grid key for joining forecasts. geomag/daypre start the day after issue; for the SWPC sheet it is `Forecast Day` + 1 (its values match the geomag report issued on `Forecast Day`).
+  - `Forecast Issued` is the true issue time parsed from the report's `:Issued:` header (e.g. 22:05, off the 3 hr grid). The SWPC sheet has no time. It is declared issued at `Forecast Day` + 1 00:00, when forecasters have the 21–00 UT slot (`notebooks/SWPC_forecast_origin.ipynb`), so `Start Offset (hr)` = 0. Its calendar is therefore keyed on `Forecast Day` + 1.
+  - `Forecast Start` is 00 UT on the first day of the report's own table, so `3hrKp` is the slot starting there. It's the on-grid key for joining forecasts. geomag/daypre start the day after issue; for the SWPC sheet it is `Forecast Day` + 1, the same as `Forecast Issued` (its values match the geomag report issued on `Forecast Day`).
   - `Start Offset (hr)` = Start − Issued. It can be negative (three_day_forecast tables begin before issue).
 - `fill_nans_func(df, freq)` places each report in the slot that holds its issue time (`Forecast Issued` floored to `freq`). Missing slots get NaT `Forecast Issued`, NaN values, and an inferred `Forecast Start`.
 - 3-hourly lead columns are `3hrKp … 72hrKp` (or `…ap`), and run to `168hr` for the SWPC 7-day sheet.
@@ -50,9 +50,16 @@ The generated `extracted_data/`, `baseline_forecasts/` and `analysis/` outputs a
 - File names follow `<source>_<horizon>_<cadence>_<quantity>.csv`.
 
 **Report types:**
-- `geomag_forecast` and the SWPC sheet are active.
-- `daypre`, `three_day_forecast`, `rsga` and `the_weekly` are partly implemented, have stub functions, or are commented out in the download script.
+- `geomag_forecast`, `three_day_forecast` and the SWPC sheet are active.
+- `daypre`, `rsga` and `the_weekly` are partly implemented, have stub functions, or are commented out in the download script.
 - `three_day_forecast` filenames carry a 12-character timestamp; the other reports use 8 characters.
+- `three_day_forecast` (`get_three_day_forecast` → `three_day_forecast_3day_3hr_Kp.csv`) has two reports a day, 0030 and 1230, so it uses `fill_nans_func(freq='12h', slots=...)`.
+  - Each report is placed in the slot from its **filename**, not its header, because a few 1230 reports were issued late (00:20 the next day).
+  - `Forecast Issued` still holds the header time. Tables start on the issue day, so `Start Offset (hr)` is about −0.5 or −12.5.
+  - Files in `THREE_DAY_FORECAST_EXCLUDED_FILES` are skipped as if they did not exist, so their slots come out as missing reports. The list holds `202510071230` (contains Kp 3.37, an invalid value) and three `…0030` files whose headers mistype the issue time as ~12:25. Add new bad files there.
+  - Files that are exact copies of an earlier report (same issue time and values) are dropped by `drop_repeated_reports`, leaving their slot empty.
+  - Kp is in whole numbers for tables starting up to 2022-11-14, and in thirds after that.
+  - `scripts/extract_forecasts.py` converts it to `three_day_forecast_3day_3hr_ap.csv` with `convert_Kp_forecast_to_ap`. Any invalid Kp in a new report makes the conversion raise, so exclude that file.
 
 **Testing convention:** utils functions take a `test` argument.
 - In `extract_forecasts_utils` and `create_baseline_forecasts_utils`, passing a directory path as `test` sends output there instead of the real output dir, and tests pass a `tempfile.TemporaryDirectory`. When reading inputs, a truthy `test` switches to fixtures in `testing/resources/testing_files/`.
